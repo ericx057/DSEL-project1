@@ -16,9 +16,9 @@ class FileHeuristics:
 
         try:
             with open(file_path, 'rb') as f:
-                content = f.read(8192) # Read chunk for binary check
+                content = f.read(8192)
                 if not content:
-                    return True # Empty file is considered human readable
+                    return True
                 
                 null_bytes = content.count(b'\x00')
                 binary_ratio = null_bytes / len(content)

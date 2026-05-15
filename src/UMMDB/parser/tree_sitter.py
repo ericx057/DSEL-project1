@@ -10,8 +10,8 @@ class TreeSitterParser:
     def can_parse(self, file_path: str, language: Optional[str]) -> bool:
         if not HAS_TREE_SITTER:
             return False
-        # For this prototype we will assume we only support python if requested, 
-        # or we gracefully fail later
+        #assume we only support python if requested,
+        #or we gracefully fail later
         if language and language.lower() in ['python', 'javascript', 'go', 'rust', 'c', 'cpp']:
             return True
         if file_path.endswith('.py') or file_path.endswith('.js'):
