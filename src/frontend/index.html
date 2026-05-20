@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CIS Demo</title>
+    <style>
+        :root {
+            --bg-color: #FAFAFA; /* Off-white */
+            --fg-color: #000000; /* Black */
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Hide scrollbar completely but allow scrolling */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        html {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--fg-color);
+            font-family: monospace;
+            height: 100vh;
+            overflow: hidden; /* Main window doesn't scroll */
+        }
+
+        .dashboard {
+            display: flex;
+            height: 100%;
+        }
+
+        .sidebar {
+            width: 250px;
+            border-right: 2px solid var(--fg-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar h1 {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+        }
+
+        .sidebar ul {
+            list-style: none;
+        }
+
+        .sidebar li {
+            margin-bottom: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .sidebar li:hover {
+            text-decoration: underline;
+        }
+
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-output {
+            flex: 1;
+            padding: 30px;
+            overflow-y: scroll;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .message-block {
+            border-left: 4px solid var(--fg-color);
+            padding-left: 15px;
+        }
+
+        .message-q {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .message-a {
+            white-space: pre-wrap;
+        }
+
+        .input-area {
+            border-top: 2px solid var(--fg-color);
+            padding: 20px;
+            display: flex;
+            gap: 15px;
+        }
+
+        textarea {
+            flex: 1;
+            background-color: var(--bg-color);
+            color: var(--fg-color);
+            border: 2px solid var(--fg-color);
+            padding: 15px;
+            font-family: monospace;
+            font-size: 1rem;
+            resize: none;
+            outline: none;
+            height: 60px;
+        }
+
+        textarea:focus {
+            background-color: #FFFFFF;
+        }
+
+        button {
+            background-color: var(--fg-color);
+            color: var(--bg-color);
+            border: 2px solid var(--fg-color);
+            padding: 0 30px;
+            font-family: monospace;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        button:active {
+            background-color: var(--bg-color);
+            color: var(--fg-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <h1>Codebase Intel</h1>
+            <ul>
+                <li onclick="clearChat()">[ + ] New Query</li>
+                <li>[ = ] History</li>
+                <li>[ ? ] Settings</li>
+            </ul>
+        </aside>
+        
+        <main class="main-area">
+            <div class="chat-output" id="chat-output">
+                <div class="message-block">
+                    <div class="message-q">SYSTEM</div>
+                    <div class="message-a">Ready. Submit query below.</div>
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <textarea id="query-input" placeholder="Enter natural language query..." onkeydown="handleEnter(event)"></textarea>
+                <button onclick="sendQuery()">Submit</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const outputEl = document.getElementById('chat-output');
+        const inputEl = document.getElementById('query-input');
+
+        function clearChat() {
+            outputEl.innerHTML = `
+                <div class="message-block">
+                    <div class="message-q">SYSTEM</div>
+                    <div class="message-a">Session cleared. Ready.</div>
+                </div>
+            `;
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendQuery();
+            }
+        }
+
+        async function sendQuery() {
+            const query = inputEl.value.trim();
+            if (!query) return;
+
+            // Render Query
+            const block = document.createElement('div');
+            block.className = 'message-block';
+            block.innerHTML = `
+                <div class="message-q">USER: ${query}</div>
+                <div class="message-a" id="current-response">...</div>
+            `;
+            outputEl.appendChild(block);
+            outputEl.scrollTop = outputEl.scrollHeight;
+
+            inputEl.value = '';
+            const responseEl = block.querySelector('#current-response');
+
+            try {
+                const response = await fetch('/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'user1' // Hardcoded mock user for demo
+                    },
+                    body: JSON.stringify({ query: query })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+
+                // If cached, it returns JSON, else SSE Stream
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    responseEl.textContent = data.response;
+                    outputEl.scrollTop = outputEl.scrollHeight;
+                    return;
+                }
+
+                // Handle Stream
+                responseEl.textContent = '';
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    responseEl.textContent += decoder.decode(value, { stream: true });
+                    outputEl.scrollTop = outputEl.scrollHeight;
+                }
+            } catch (err) {
+                responseEl.textContent = `[ ERROR ] ${err.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
