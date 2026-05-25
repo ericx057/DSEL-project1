@@ -29,7 +29,7 @@ async def test_model_hook_failure():
     
     # Mock text_generation to raise an error
     async def mock_text_generation_error(*args, **kwargs):
-        raise ValueError("Simulated HuggingFace Error")
+        raise ValueError("Simulated backend Error")
         # Generator needs to yield something or just raise
         yield "" 
         
@@ -39,5 +39,5 @@ async def test_model_hook_failure():
     async for chunk in hook.generate_stream("test prompt"):
         chunks.append(chunk)
         
-    assert "Inference Error: Simulated HuggingFace Error" in chunks[0]
+    assert chunks == ["\n[Inference Error: local inference engine unavailable]"]
     assert cb.state == "OPEN"

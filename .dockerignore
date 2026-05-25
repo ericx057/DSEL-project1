@@ -1,0 +1,11 @@
+.git
+.idea
+.venv
+.cis
+__pycache__
+*.pyc
+.coverage
+tests
+plans
+run_demo.py
+observability/metrics-token

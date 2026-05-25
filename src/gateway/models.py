@@ -25,3 +25,11 @@ class AuditEvent(BaseModel):
     latency_ms: float
     cache_hit: bool
     rbac_blocked: bool
+
+class HistoryRecord(BaseModel):
+    user_id: str
+    query: str
+    response: str
+    model_used: str
+    repo_scope: List[str]
+    created_at: float

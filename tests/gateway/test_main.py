@@ -5,9 +5,10 @@ from fastapi import FastAPI
 from src.gateway.main import (
     app, get_access_matrix_repo, get_scope_repo, 
     get_cache_repo, get_rate_limit_repo, get_audit_repo,
-    get_model_hook, global_circuit_breaker
+    get_model_hook, get_jwt_verifier, get_retrieval_store, global_circuit_breaker
 )
 from src.gateway.models import AccessTier
+from src.gateway.models import User
 from tests.gateway.mocks import (
     InMemoryAccessMatrixRepository,
     InMemoryScopeRepository,
@@ -16,6 +17,11 @@ from tests.gateway.mocks import (
     InMemoryAuditRepository
 )
 from src.gateway.model_hook import ModelHook
+from src.retrieval.database import InMemoryUnifiedStore
+
+class StaticVerifier:
+    def verify(self, authorization: str) -> User:
+        return User(id=authorization, groups=["dev", "engineering"])
 
 # --- Mock the Model Hook to avoid real HuggingFace API calls during tests ---
 class MockModelHook(ModelHook):
@@ -42,6 +48,7 @@ def test_app():
     cache_repo = InMemoryCacheRepository()
     rl_repo = InMemoryRateLimitRepository({"user1": 2}) # very low limit for testing
     audit_repo = InMemoryAuditRepository()
+    store = InMemoryUnifiedStore([{"id": "repo-a:1", "text": "entrypoint context", "tier": 3}])
     
     app.dependency_overrides[get_access_matrix_repo] = lambda: am_repo
     app.dependency_overrides[get_scope_repo] = lambda: scope_repo
@@ -49,6 +56,8 @@ def test_app():
     app.dependency_overrides[get_rate_limit_repo] = lambda: rl_repo
     app.dependency_overrides[get_audit_repo] = lambda: audit_repo
     app.dependency_overrides[get_model_hook] = lambda: MockModelHook(global_circuit_breaker)
+    app.dependency_overrides[get_jwt_verifier] = lambda: StaticVerifier()
+    app.dependency_overrides[get_retrieval_store] = lambda: store
     
     yield app, rl_repo, cache_repo, audit_repo
     app.dependency_overrides.clear()

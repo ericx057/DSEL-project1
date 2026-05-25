@@ -1,8 +1,20 @@
 import os
 from typing import List, Dict, Any
 
+try:
+    from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer
+except Exception:
+    AutoModel = None
+    AutoModelForCausalLM = None
+    AutoTokenizer = None
+
 class EmbeddingHook:
-    def __init__(self, model_name: str = "nomic-ai/nomic-embed-text-v1.5", mock: bool = False):
+    def __init__(
+        self,
+        model_name: str = "nomic-ai/nomic-embed-text-v1.5",
+        mock: bool = False,
+        trust_remote_code: bool = False,
+    ):
         self.model_name = model_name
         self.mock = mock
         self.tokenizer = None
@@ -10,9 +22,14 @@ class EmbeddingHook:
         
         if not self.mock and not os.environ.get("UMMDB_MOCK_MODELS"):
             try:
-                from transformers import AutoTokenizer, AutoModel
-                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-                self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+                if AutoTokenizer is None or AutoModel is None:
+                    raise ImportError("transformers is not available")
+                self.tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
+                self.model = AutoModel.from_pretrained(
+                    model_name,
+                    trust_remote_code=trust_remote_code,
+                    local_files_only=True,
+                )
             except Exception:
                 # Fallback gracefully
                 self.mock = True
@@ -43,9 +60,10 @@ class LLMHook:
         
         if not self.mock and not os.environ.get("UMMDB_MOCK_MODELS"):
             try:
-                from transformers import AutoTokenizer, AutoModelForCausalLM
-                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-                self.model = AutoModelForCausalLM.from_pretrained(model_name)
+                if AutoTokenizer is None or AutoModelForCausalLM is None:
+                    raise ImportError("transformers is not available")
+                self.tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
+                self.model = AutoModelForCausalLM.from_pretrained(model_name, local_files_only=True)
             except Exception:
                 self.mock = True
 

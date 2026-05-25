@@ -1,0 +1,38 @@
+{
+  "title": "Codebase Intelligence System",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Circuit Breaker Open",
+      "targets": [
+        {
+          "expr": "cis_circuit_breaker_open"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Inference Failures",
+      "targets": [
+        {
+          "expr": "cis_circuit_breaker_failures"
+        }
+      ],
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      }
+    }
+  ]
+}

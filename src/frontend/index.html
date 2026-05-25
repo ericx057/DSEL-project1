@@ -1,243 +1,519 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CIS Demo</title>
-    <style>
-        :root {
-            --bg-color: #FAFAFA; /* Off-white */
-            --fg-color: #000000; /* Black */
-        }
-        
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Codebase Intelligence</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --panel-2: #eef2f6;
+      --line: #c8d0d8;
+      --text: #17202a;
+      --muted: #5d6978;
+      --accent: #0f766e;
+      --accent-2: #334155;
+      --danger: #b42318;
+      --code: #111827;
+    }
 
-        /* Hide scrollbar completely but allow scrolling */
-        ::-webkit-scrollbar {
-            display: none;
-        }
-        html {
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
+    * { box-sizing: border-box; }
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--fg-color);
-            font-family: monospace;
-            height: 100vh;
-            overflow: hidden; /* Main window doesn't scroll */
-        }
+    body {
+      margin: 0;
+      height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
 
-        .dashboard {
-            display: flex;
-            height: 100%;
-        }
+    button, input, textarea, select {
+      font: inherit;
+    }
 
-        .sidebar {
-            width: 250px;
-            border-right: 2px solid var(--fg-color);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-        }
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      min-height: 36px;
+      border-radius: 6px;
+      padding: 0 12px;
+      cursor: pointer;
+    }
 
-        .sidebar h1 {
-            font-size: 1.2rem;
-            margin-bottom: 30px;
-            text-transform: uppercase;
-        }
+    button:hover { border-color: var(--accent-2); }
+    button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+    button.icon { width: 36px; padding: 0; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
 
-        .sidebar ul {
-            list-style: none;
-        }
+    .shell {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr) 360px;
+      grid-template-rows: 56px minmax(0, 1fr);
+    }
 
-        .sidebar li {
-            margin-bottom: 15px;
-            font-weight: bold;
-            cursor: pointer;
-        }
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
 
-        .sidebar li:hover {
-            text-decoration: underline;
-        }
+    .brand {
+      font-weight: 700;
+      letter-spacing: 0;
+    }
 
-        .main-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-        .chat-output {
-            flex: 1;
-            padding: 30px;
-            overflow-y: scroll;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
+    .toolbar input, .toolbar select {
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 0 10px;
+      min-width: 150px;
+    }
 
-        .message-block {
-            border-left: 4px solid var(--fg-color);
-            padding-left: 15px;
-        }
+    aside, .inspector {
+      min-height: 0;
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      overflow: auto;
+    }
 
-        .message-q {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
+    .inspector {
+      border-right: 0;
+      border-left: 1px solid var(--line);
+    }
 
-        .message-a {
-            white-space: pre-wrap;
-        }
+    .panel-title {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-2);
+      text-transform: uppercase;
+    }
 
-        .input-area {
-            border-top: 2px solid var(--fg-color);
-            padding: 20px;
-            display: flex;
-            gap: 15px;
-        }
+    .history-list, .bookmark-list {
+      display: flex;
+      flex-direction: column;
+    }
 
-        textarea {
-            flex: 1;
-            background-color: var(--bg-color);
-            color: var(--fg-color);
-            border: 2px solid var(--fg-color);
-            padding: 15px;
-            font-family: monospace;
-            font-size: 1rem;
-            resize: none;
-            outline: none;
-            height: 60px;
-        }
+    .history-item, .bookmark-item {
+      width: 100%;
+      text-align: left;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      border-radius: 0;
+      min-height: 54px;
+      padding: 10px 14px;
+      background: transparent;
+    }
 
-        textarea:focus {
-            background-color: #FFFFFF;
-        }
+    .item-main {
+      font-size: 13px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
-        button {
-            background-color: var(--fg-color);
-            color: var(--bg-color);
-            border: 2px solid var(--fg-color);
-            padding: 0 30px;
-            font-family: monospace;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            text-transform: uppercase;
-        }
+    .item-sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
-        button:active {
-            background-color: var(--bg-color);
-            color: var(--fg-color);
-        }
-    </style>
+    main {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+    }
+
+    .conversation {
+      min-height: 0;
+      overflow: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .turn {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    .turn-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 38px;
+      padding: 0 12px;
+      background: var(--panel-2);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .turn-query {
+      min-width: 0;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .turn-actions {
+      display: flex;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+
+    .answer {
+      padding: 14px;
+      white-space: pre-wrap;
+      line-height: 1.48;
+      font-size: 14px;
+    }
+
+    .answer code, textarea {
+      font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    .composer {
+      border-top: 1px solid var(--line);
+      background: var(--panel);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .composer-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .segmented {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      height: 36px;
+    }
+
+    .segmented button {
+      border: 0;
+      border-radius: 0;
+      min-height: 34px;
+      border-right: 1px solid var(--line);
+    }
+
+    .segmented button:last-child { border-right: 0; }
+    .segmented button.active { background: var(--accent-2); color: white; }
+
+    textarea {
+      width: 100%;
+      min-height: 92px;
+      max-height: 240px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      color: var(--code);
+      background: #fbfcfd;
+      line-height: 1.45;
+    }
+
+    .diagram-frame {
+      padding: 14px;
+      overflow: auto;
+    }
+
+    .status {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .error { color: var(--danger); }
+
+    @media (max-width: 1040px) {
+      .shell { grid-template-columns: 240px minmax(0, 1fr); }
+      .inspector { display: none; }
+    }
+
+    @media (max-width: 720px) {
+      .shell { grid-template-columns: 1fr; grid-template-rows: 56px minmax(0, 1fr); }
+      aside { display: none; }
+      header { padding: 0 10px; }
+      .toolbar input { max-width: 160px; }
+    }
+  </style>
 </head>
 <body>
-    <div class="dashboard">
-        <aside class="sidebar">
-            <h1>Codebase Intel</h1>
-            <ul>
-                <li onclick="clearChat()">[ + ] New Query</li>
-                <li>[ = ] History</li>
-                <li>[ ? ] Settings</li>
-            </ul>
-        </aside>
-        
-        <main class="main-area">
-            <div class="chat-output" id="chat-output">
-                <div class="message-block">
-                    <div class="message-q">SYSTEM</div>
-                    <div class="message-a">Ready. Submit query below.</div>
-                </div>
-            </div>
-            
-            <div class="input-area">
-                <textarea id="query-input" placeholder="Enter natural language query..." onkeydown="handleEnter(event)"></textarea>
-                <button onclick="sendQuery()">Submit</button>
-            </div>
-        </main>
-    </div>
+  <div class="shell">
+    <header>
+      <div class="brand">Codebase Intelligence</div>
+      <div class="toolbar">
+        <input id="token" type="password" placeholder="Bearer token" autocomplete="off">
+        <select id="model"></select>
+        <button id="refresh" class="icon" title="Refresh history">R</button>
+      </div>
+    </header>
 
-    <script>
-        const outputEl = document.getElementById('chat-output');
-        const inputEl = document.getElementById('query-input');
+    <aside>
+      <div class="panel-title">
+        <span>History</span>
+        <button id="new-query" class="icon" title="New query">+</button>
+      </div>
+      <div id="history-status" class="status">No history loaded.</div>
+      <div id="history" class="history-list"></div>
+    </aside>
 
-        function clearChat() {
-            outputEl.innerHTML = `
-                <div class="message-block">
-                    <div class="message-q">SYSTEM</div>
-                    <div class="message-a">Session cleared. Ready.</div>
-                </div>
-            `;
+    <main>
+      <section id="conversation" class="conversation"></section>
+      <section class="composer">
+        <div class="composer-controls">
+          <div class="segmented" aria-label="Explanation depth">
+            <button data-depth="summary" class="active">Line</button>
+            <button data-depth="paragraph">Para</button>
+            <button data-depth="deep">Deep</button>
+          </div>
+          <label><input id="diagram" type="checkbox"> Diagram</label>
+          <button id="bookmark">Bookmark</button>
+          <button id="export-md">Export MD</button>
+          <button id="print">PDF</button>
+          <button id="submit" class="primary">Submit</button>
+        </div>
+        <textarea id="query" spellcheck="false" placeholder="Ask about an indexed repository"></textarea>
+      </section>
+    </main>
+
+    <section class="inspector">
+      <div class="panel-title">Diagram</div>
+      <div id="diagram-frame" class="diagram-frame"></div>
+      <div class="panel-title">Bookmarks</div>
+      <div id="bookmarks" class="bookmark-list"></div>
+    </section>
+  </div>
+
+  <script>
+    const state = {
+      depth: 'summary',
+      lastTurn: null,
+      bookmarks: JSON.parse(localStorage.getItem('cis.bookmarks') || '[]')
+    };
+
+    const els = {
+      token: document.getElementById('token'),
+      model: document.getElementById('model'),
+      refresh: document.getElementById('refresh'),
+      history: document.getElementById('history'),
+      historyStatus: document.getElementById('history-status'),
+      conversation: document.getElementById('conversation'),
+      query: document.getElementById('query'),
+      diagram: document.getElementById('diagram'),
+      diagramFrame: document.getElementById('diagram-frame'),
+      submit: document.getElementById('submit'),
+      bookmark: document.getElementById('bookmark'),
+      bookmarks: document.getElementById('bookmarks')
+    };
+
+    function authHeaders() {
+      const token = els.token.value.trim();
+      return token ? { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` } : {};
+    }
+
+    function renderTurn(query, answer = '') {
+      const turn = document.createElement('article');
+      turn.className = 'turn';
+      turn.innerHTML = `
+        <div class="turn-head">
+          <div class="turn-query"></div>
+          <div class="turn-actions">
+            <button class="icon copy" title="Copy answer">C</button>
+          </div>
+        </div>
+        <div class="answer"></div>
+      `;
+      turn.querySelector('.turn-query').textContent = query;
+      turn.querySelector('.answer').textContent = answer;
+      turn.querySelector('.copy').addEventListener('click', () => navigator.clipboard.writeText(turn.querySelector('.answer').textContent));
+      els.conversation.appendChild(turn);
+      els.conversation.scrollTop = els.conversation.scrollHeight;
+      state.lastTurn = turn;
+      return turn.querySelector('.answer');
+    }
+
+    async function loadModels() {
+      const response = await fetch('/models');
+      const data = await response.json();
+      els.model.innerHTML = '';
+      for (const model of data.models || ['7b']) {
+        const option = document.createElement('option');
+        option.value = model;
+        option.textContent = model;
+        els.model.appendChild(option);
+      }
+    }
+
+    async function loadHistory() {
+      try {
+        const response = await fetch('/history', { headers: authHeaders() });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const rows = data.history || [];
+        els.history.innerHTML = '';
+        els.historyStatus.classList.remove('error');
+        els.historyStatus.textContent = rows.length ? `${rows.length} records` : 'No records.';
+        for (const item of rows.slice().reverse()) {
+          const button = document.createElement('button');
+          button.className = 'history-item';
+          button.innerHTML = `<div class="item-main"></div><div class="item-sub"></div>`;
+          button.querySelector('.item-main').textContent = item.query;
+          button.querySelector('.item-sub').textContent = item.model_used;
+          button.addEventListener('click', () => renderTurn(item.query, item.response));
+          els.history.appendChild(button);
         }
+      } catch (error) {
+        els.historyStatus.textContent = error.message;
+        els.historyStatus.classList.add('error');
+      }
+    }
 
-        function handleEnter(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendQuery();
-            }
+    async function submitQuery() {
+      const query = els.query.value.trim();
+      if (!query) return;
+      els.submit.disabled = true;
+      const answer = renderTurn(query, '');
+      els.query.value = '';
+
+      const body = {
+        query: `${state.depth}: ${query}`,
+        override_model: els.model.value || null,
+        diagram_requested: els.diagram.checked
+      };
+
+      try {
+        const response = await fetch('/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await response.json();
+          answer.textContent = data.response;
+        } else {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          while (true) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            answer.textContent += decoder.decode(chunk.value, { stream: true });
+            els.conversation.scrollTop = els.conversation.scrollHeight;
+          }
         }
+        if (els.diagram.checked) await loadDiagram(query);
+        await loadHistory();
+      } catch (error) {
+        answer.textContent = error.message;
+        answer.classList.add('error');
+      } finally {
+        els.submit.disabled = false;
+      }
+    }
 
-        async function sendQuery() {
-            const query = inputEl.value.trim();
-            if (!query) return;
+    async function loadDiagram(query) {
+      const response = await fetch(`/diagram/call-graph?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
+      els.diagramFrame.innerHTML = await response.text();
+    }
 
-            // Render Query
-            const block = document.createElement('div');
-            block.className = 'message-block';
-            block.innerHTML = `
-                <div class="message-q">USER: ${query}</div>
-                <div class="message-a" id="current-response">...</div>
-            `;
-            outputEl.appendChild(block);
-            outputEl.scrollTop = outputEl.scrollHeight;
+    function saveBookmark() {
+      if (!state.lastTurn) return;
+      const query = state.lastTurn.querySelector('.turn-query').textContent;
+      const response = state.lastTurn.querySelector('.answer').textContent;
+      state.bookmarks.unshift({ query, response, created_at: Date.now() });
+      state.bookmarks = state.bookmarks.slice(0, 25);
+      localStorage.setItem('cis.bookmarks', JSON.stringify(state.bookmarks));
+      renderBookmarks();
+    }
 
-            inputEl.value = '';
-            const responseEl = block.querySelector('#current-response');
+    function renderBookmarks() {
+      els.bookmarks.innerHTML = '';
+      for (const item of state.bookmarks) {
+        const button = document.createElement('button');
+        button.className = 'bookmark-item';
+        button.innerHTML = `<div class="item-main"></div><div class="item-sub"></div>`;
+        button.querySelector('.item-main').textContent = item.query;
+        button.querySelector('.item-sub').textContent = new Date(item.created_at).toLocaleString();
+        button.addEventListener('click', () => renderTurn(item.query, item.response));
+        els.bookmarks.appendChild(button);
+      }
+    }
 
-            try {
-                const response = await fetch('/query', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'user1' // Hardcoded mock user for demo
-                    },
-                    body: JSON.stringify({ query: query })
-                });
+    function exportMarkdown() {
+      if (!state.lastTurn) return;
+      const query = state.lastTurn.querySelector('.turn-query').textContent;
+      const response = state.lastTurn.querySelector('.answer').textContent;
+      const blob = new Blob([`# ${query}\n\n${response}\n`], { type: 'text/markdown' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'codebase-intelligence-response.md';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-                }
+    document.querySelectorAll('[data-depth]').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('[data-depth]').forEach(item => item.classList.remove('active'));
+        button.classList.add('active');
+        state.depth = button.dataset.depth;
+      });
+    });
+    els.submit.addEventListener('click', submitQuery);
+    els.query.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) submitQuery();
+    });
+    els.refresh.addEventListener('click', loadHistory);
+    document.getElementById('new-query').addEventListener('click', () => {
+      els.conversation.innerHTML = '';
+      state.lastTurn = null;
+    });
+    els.bookmark.addEventListener('click', saveBookmark);
+    document.getElementById('export-md').addEventListener('click', exportMarkdown);
+    document.getElementById('print').addEventListener('click', () => window.print());
 
-                // If cached, it returns JSON, else SSE Stream
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    const data = await response.json();
-                    responseEl.textContent = data.response;
-                    outputEl.scrollTop = outputEl.scrollHeight;
-                    return;
-                }
-
-                // Handle Stream
-                responseEl.textContent = '';
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder('utf-8');
-
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    responseEl.textContent += decoder.decode(value, { stream: true });
-                    outputEl.scrollTop = outputEl.scrollHeight;
-                }
-            } catch (err) {
-                responseEl.textContent = `[ ERROR ] ${err.message}`;
-            }
-        }
-    </script>
+    renderBookmarks();
+    loadModels().catch(() => { els.model.innerHTML = '<option>7b</option>'; });
+  </script>
 </body>
 </html>

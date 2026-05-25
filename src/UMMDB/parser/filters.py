@@ -9,10 +9,11 @@ class FileHeuristics:
     def is_human_readable(self, file_path: str) -> bool:
         if not os.path.exists(file_path):
             return False
-        
         for pattern in self.exclude_patterns:
             if pattern in file_path:
                 return False
+        if os.path.getsize(file_path) == 0:
+            return True
 
         try:
             with open(file_path, 'rb') as f:

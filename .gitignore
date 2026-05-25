@@ -1,1 +1,6 @@
 plans/domain1-implementation.md
+.cis/
+__pycache__/
+*.pyc
+.coverage
+observability/metrics-token
