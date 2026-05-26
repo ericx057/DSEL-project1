@@ -5,7 +5,6 @@ from pathlib import Path
 
 from fastapi.responses import FileResponse
 
-from src.ingestion.indexer import RepositoryIndexer
 from src.retrieval.database import HashingEmbeddingProvider, SQLiteUnifiedStore
 from src.retrieval.embeddings import LocalTransformersEmbeddingProvider
 from src.gateway.main import create_app
@@ -26,7 +25,6 @@ def build_app():
     data_dir.mkdir(parents=True, exist_ok=True)
 
     repository_name = os.environ.get("CIS_REPOSITORY_NAME", "default")
-    repository_path = Path(os.environ.get("CIS_REPOSITORY_PATH", "/repos/default")).resolve()
     jwt_secret = os.environ["CIS_JWT_SECRET"]
     issuer = os.environ.get("CIS_JWT_ISSUER")
     audience = os.environ.get("CIS_JWT_AUDIENCE")
@@ -43,8 +41,6 @@ def build_app():
     )
 
     store = SQLiteUnifiedStore(data_dir / "index.db", embedding_provider)
-    if repository_path.exists():
-        RepositoryIndexer(store).index_repository(repository_name, repository_path)
 
     access = SQLiteAccessMatrixRepository(data_dir / "access.db")
     default_user = os.environ.get("CIS_BOOTSTRAP_USER")

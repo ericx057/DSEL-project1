@@ -14,18 +14,30 @@ services:
       CIS_OLLAMA_BASE_URL: http://ollama:11434
       CIS_OLLAMA_MODEL: ${CIS_OLLAMA_MODEL:-qwen2.5-coder:7b}
       CIS_REDIS_URL: redis://redis:6379/0
-      CIS_EMBEDDING_BACKEND: ${CIS_EMBEDDING_BACKEND:-nomic}
-      CIS_EMBEDDING_MODEL: ${CIS_EMBEDDING_MODEL:-nomic-ai/nomic-embed-text-v1.5}
-      CIS_EMBEDDING_TRUST_REMOTE_CODE: ${CIS_EMBEDDING_TRUST_REMOTE_CODE:-false}
       CIS_BOOTSTRAP_USER: ${CIS_BOOTSTRAP_USER:-}
       CIS_BOOTSTRAP_GROUP: ${CIS_BOOTSTRAP_GROUP:-}
       CIS_BOOTSTRAP_TIER: ${CIS_BOOTSTRAP_TIER:-T-1}
     volumes:
       - cis-data:/data
-      - ./:/repos/project1:ro
     depends_on:
       - ollama
       - redis
+
+  indexer:
+    build: .
+    command: ["python", "-m", "src.ingestion.cli"]
+    profiles:
+      - indexing
+    environment:
+      CIS_DATA_DIR: /data
+      CIS_REPOSITORY_NAME: ${CIS_REPOSITORY_NAME:-project1}
+      CIS_REPOSITORY_PATH: /repos/project1
+      CIS_EMBEDDING_BACKEND: ${CIS_EMBEDDING_BACKEND:-nomic}
+      CIS_EMBEDDING_MODEL: ${CIS_EMBEDDING_MODEL:-nomic-ai/nomic-embed-text-v1.5}
+      CIS_EMBEDDING_TRUST_REMOTE_CODE: ${CIS_EMBEDDING_TRUST_REMOTE_CODE:-false}
+    volumes:
+      - cis-data:/data
+      - ./:/repos/project1:ro
 
   redis:
     image: redis:7-alpine
