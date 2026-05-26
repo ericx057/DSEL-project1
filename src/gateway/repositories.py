@@ -8,6 +8,17 @@ from typing import AsyncGenerator, List, Optional
 
 from src.gateway.models import AccessTier, AuditEvent, HistoryRecord
 
+
+def _ensure_inference_engine_column(connection: sqlite3.Connection, table: str) -> None:
+    columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
+    if "inference_engine_used" in columns:
+        return
+    if "model_used" in columns:
+        connection.execute(f"ALTER TABLE {table} RENAME COLUMN model_used TO inference_engine_used")
+        return
+    connection.execute(f"ALTER TABLE {table} ADD COLUMN inference_engine_used TEXT NOT NULL DEFAULT 'llama.cpp'")
+
+
 class AccessMatrixRepository(ABC):
     """Contract for resolving user IDs to access tiers."""
     @abstractmethod
@@ -198,13 +209,14 @@ class SQLiteAuditRepository(AuditRepository):
                     access_tier TEXT NOT NULL,
                     query_hash TEXT NOT NULL,
                     repo_scope TEXT NOT NULL,
-                    model_used TEXT NOT NULL,
+                    inference_engine_used TEXT NOT NULL,
                     latency_ms REAL NOT NULL,
                     cache_hit INTEGER NOT NULL,
                     rbac_blocked INTEGER NOT NULL
                 )
                 """
             )
+            _ensure_inference_engine_column(self._connection, "audit_log")
 
     async def log_event(self, event: AuditEvent) -> None:
         with self._lock, self._connection:
@@ -212,7 +224,7 @@ class SQLiteAuditRepository(AuditRepository):
                 """
                 INSERT INTO audit_log(
                     created_at, user_id, access_tier, query_hash, repo_scope,
-                    model_used, latency_ms, cache_hit, rbac_blocked
+                    inference_engine_used, latency_ms, cache_hit, rbac_blocked
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -222,7 +234,7 @@ class SQLiteAuditRepository(AuditRepository):
                     event.access_tier.value,
                     event.query_hash,
                     json.dumps(event.repo_scope),
-                    event.model_used,
+                    event.inference_engine_used,
                     event.latency_ms,
                     int(event.cache_hit),
                     int(event.rbac_blocked),
@@ -237,7 +249,7 @@ class SQLiteAuditRepository(AuditRepository):
                 access_tier=AccessTier(row["access_tier"]),
                 query_hash=row["query_hash"],
                 repo_scope=json.loads(row["repo_scope"]),
-                model_used=row["model_used"],
+                inference_engine_used=row["inference_engine_used"],
                 latency_ms=row["latency_ms"],
                 cache_hit=bool(row["cache_hit"]),
                 rbac_blocked=bool(row["rbac_blocked"]),
@@ -273,26 +285,27 @@ class SQLiteUserHistoryRepository(UserHistoryRepository):
                     user_id TEXT NOT NULL,
                     query TEXT NOT NULL,
                     response TEXT NOT NULL,
-                    model_used TEXT NOT NULL,
+                    inference_engine_used TEXT NOT NULL,
                     repo_scope TEXT NOT NULL,
                     created_at REAL NOT NULL
                 )
                 """
             )
+            _ensure_inference_engine_column(self._connection, "user_history")
             self._connection.execute("CREATE INDEX IF NOT EXISTS idx_user_history_user ON user_history(user_id)")
 
     async def add_record(self, record: HistoryRecord) -> None:
         with self._lock, self._connection:
             self._connection.execute(
                 """
-                INSERT INTO user_history(user_id, query, response, model_used, repo_scope, created_at)
+                INSERT INTO user_history(user_id, query, response, inference_engine_used, repo_scope, created_at)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.user_id,
                     record.query,
                     record.response,
-                    record.model_used,
+                    record.inference_engine_used,
                     json.dumps(record.repo_scope),
                     record.created_at,
                 ),
@@ -308,7 +321,7 @@ class SQLiteUserHistoryRepository(UserHistoryRepository):
                 user_id=row["user_id"],
                 query=row["query"],
                 response=row["response"],
-                model_used=row["model_used"],
+                inference_engine_used=row["inference_engine_used"],
                 repo_scope=json.loads(row["repo_scope"]),
                 created_at=row["created_at"],
             )

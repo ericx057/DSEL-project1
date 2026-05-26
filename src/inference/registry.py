@@ -1,25 +1,34 @@
-from .hardware import HardwareProfiler
+from __future__ import annotations
 
-class ModelRegistry:
-    def __init__(self, profiler: HardwareProfiler):
-        self.profiler = profiler
-        self.task_requirements = {
-            "single-function": "7b",
-            "complex-task": "14b",
-            "repo-analysis": "32b"
-        }
+import os
+from dataclasses import dataclass
+from typing import Optional
 
-    def get_available_models(self) -> list[str]:
-        profile = self.profiler.get_profile()
-        if profile == "gpu-dual":
-            return ["7b", "14b", "32b"]
-        if profile in ("gpu-single", "cpu-large"):
-            return ["7b", "14b"]
-        return ["7b"]
+from src.inference.llamacpp import LlamaCppEndpointConfig
 
-    def get_model_for_task(self, task_type: str) -> str:
-        req = self.task_requirements.get(task_type, "7b")
-        available = self.get_available_models()
-        if req in available:
-            return req
-        return available[-1]
+
+@dataclass(frozen=True)
+class InferenceEngineEndpoint:
+    url: str
+    health_url: str
+    engine_id: str = "llama.cpp"
+
+
+class InferenceEngineRegistry:
+    def __init__(
+        self,
+        endpoint_url: Optional[str] = None,
+        base_url: Optional[str] = None,
+        engine_id: Optional[str] = None,
+    ):
+        self._endpoint_url = endpoint_url or ""
+        self._base_url = base_url if base_url is not None else os.environ.get("CIS_LLAMA_CPP_BASE_URL", LlamaCppEndpointConfig.base_url)
+        self._engine_id = engine_id or os.environ.get("CIS_INFERENCE_ENGINE_ID", "llama.cpp")
+
+    def get_engine_endpoint(self) -> InferenceEngineEndpoint:
+        endpoint_url = self._endpoint_url.strip()
+        if endpoint_url:
+            config = LlamaCppEndpointConfig(base_url=endpoint_url)
+            return InferenceEngineEndpoint(url=config.completion_url, health_url=config.health_url, engine_id=self._engine_id)
+        config = LlamaCppEndpointConfig(base_url=self._base_url)
+        return InferenceEngineEndpoint(url=config.completion_url, health_url=config.health_url, engine_id=self._engine_id)

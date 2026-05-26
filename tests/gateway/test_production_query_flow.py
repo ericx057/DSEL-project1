@@ -9,7 +9,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.gateway.main import create_app
-from src.gateway.models import AccessTier
+from src.gateway.models import AccessTier, QueryRequest
 from src.gateway.repositories import (
     SQLiteAccessMatrixRepository,
     SQLiteAuditRepository,
@@ -35,6 +35,7 @@ def _token(payload: dict, secret: str = "secret") -> str:
 
 class RecordingModelHook(ModelHook):
     def __init__(self):
+        self.inference_engine_id = "recording-engine"
         self.prompts = []
 
     async def generate_stream(self, prompt: str):
@@ -83,7 +84,7 @@ async def test_production_query_flow_retrieves_before_inference_and_logs(tmp_pat
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/query",
-            json={"query": "public api secret", "override_model": "attacker-controlled-name"},
+            json={"query": "public api secret"},
             headers={"Authorization": f"Bearer {token}"},
         )
 
@@ -92,8 +93,17 @@ async def test_production_query_flow_retrieves_before_inference_and_logs(tmp_pat
     assert "def public_api()" in model_hook.prompts[0]
     assert "secret implementation detail" not in model_hook.prompts[0]
     assert audit.list_events()[0].cache_hit is False
-    assert audit.list_events()[0].model_used == "default"
+    assert audit.list_events()[0].inference_engine_used == "recording-engine"
     assert history.list_for_user("user-1")[0].response == "answer"
+    assert history.list_for_user("user-1")[0].inference_engine_used == "recording-engine"
+
+
+def test_query_request_rejects_model_override():
+    try:
+        QueryRequest(query="public api", override_model="attacker-controlled-name")
+        assert False
+    except ValueError as exc:
+        assert "override_model" in str(exc)
 
 
 @pytest.mark.asyncio

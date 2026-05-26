@@ -1,6 +1,6 @@
 from enum import Enum
-from typing import List, Optional
-from pydantic import BaseModel, Field
+from typing import List
+from pydantic import BaseModel, ConfigDict, Field
 
 class AccessTier(str, Enum):
     T1 = "T-1"  # Interface level only
@@ -12,8 +12,9 @@ class User(BaseModel):
     groups: List[str] = Field(default_factory=list)
 
 class QueryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     query: str
-    override_model: Optional[str] = None
     diagram_requested: bool = False
 
 class AuditEvent(BaseModel):
@@ -21,7 +22,7 @@ class AuditEvent(BaseModel):
     access_tier: AccessTier
     query_hash: str
     repo_scope: List[str]
-    model_used: str
+    inference_engine_used: str
     latency_ms: float
     cache_hit: bool
     rbac_blocked: bool
@@ -30,6 +31,6 @@ class HistoryRecord(BaseModel):
     user_id: str
     query: str
     response: str
-    model_used: str
+    inference_engine_used: str
     repo_scope: List[str]
     created_at: float

@@ -283,7 +283,6 @@
       <div class="brand">Codebase Intelligence</div>
       <div class="toolbar">
         <input id="token" type="password" placeholder="Bearer token" autocomplete="off">
-        <select id="model"></select>
         <button id="refresh" class="icon" title="Refresh history">R</button>
       </div>
     </header>
@@ -333,7 +332,6 @@
 
     const els = {
       token: document.getElementById('token'),
-      model: document.getElementById('model'),
       refresh: document.getElementById('refresh'),
       history: document.getElementById('history'),
       historyStatus: document.getElementById('history-status'),
@@ -372,18 +370,6 @@
       return turn.querySelector('.answer');
     }
 
-    async function loadModels() {
-      const response = await fetch('/models');
-      const data = await response.json();
-      els.model.innerHTML = '';
-      for (const model of data.models || ['7b']) {
-        const option = document.createElement('option');
-        option.value = model;
-        option.textContent = model;
-        els.model.appendChild(option);
-      }
-    }
-
     async function loadHistory() {
       try {
         const response = await fetch('/history', { headers: authHeaders() });
@@ -398,7 +384,7 @@
           button.className = 'history-item';
           button.innerHTML = `<div class="item-main"></div><div class="item-sub"></div>`;
           button.querySelector('.item-main').textContent = item.query;
-          button.querySelector('.item-sub').textContent = item.model_used;
+          button.querySelector('.item-sub').textContent = item.inference_engine_used;
           button.addEventListener('click', () => renderTurn(item.query, item.response));
           els.history.appendChild(button);
         }
@@ -417,7 +403,6 @@
 
       const body = {
         query: `${state.depth}: ${query}`,
-        override_model: els.model.value || null,
         diagram_requested: els.diagram.checked
       };
 
@@ -513,7 +498,6 @@
     document.getElementById('print').addEventListener('click', () => window.print());
 
     renderBookmarks();
-    loadModels().catch(() => { els.model.innerHTML = '<option>7b</option>'; });
   </script>
 </body>
 </html>

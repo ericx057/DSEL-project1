@@ -11,8 +11,6 @@ from src.retrieval.database import UnifiedStore
 from src.retrieval.hybrid import HybridSearcher
 from src.retrieval.reranker import LexicalReranker
 from src.diagram.service import DiagramService
-from src.inference.hardware import HardwareProfiler
-from src.inference.registry import ModelRegistry
 from src.gateway.model_hook import ModelHook
 from src.gateway.models import AuditEvent, HistoryRecord, QueryRequest
 from src.gateway.repositories import (
@@ -147,10 +145,6 @@ def create_app(
     async def health():
         return {"status": "ok"}
 
-    @api.get("/models")
-    async def models():
-        return {"models": ModelRegistry(HardwareProfiler()).get_available_models()}
-
     @api.get("/history")
     async def history_endpoint(
         authorization: str = Header(...),
@@ -225,14 +219,14 @@ def create_app(
         scopes = await scoping.resolve_scope(user, request.query)
         query_hash = cache._generate_key(request.query, tier, scopes)
         if not scopes:
-            blocked_model_used = getattr(selected_model_hook, "model_id", "default")
+            blocked_engine_used = getattr(selected_model_hook, "inference_engine_id", "llama.cpp")
             await audit.log(
                 AuditEvent(
                     user_id=user.id,
                     access_tier=tier,
                     query_hash=query_hash,
                     repo_scope=[],
-                    model_used=blocked_model_used,
+                    inference_engine_used=blocked_engine_used,
                     latency_ms=(time.time() - start_time) * 1000,
                     cache_hit=False,
                     rbac_blocked=True,
@@ -248,7 +242,7 @@ def create_app(
                     access_tier=tier,
                     query_hash=query_hash,
                     repo_scope=scopes,
-                    model_used="cache",
+                    inference_engine_used="cache",
                     latency_ms=(time.time() - start_time) * 1000,
                     cache_hit=True,
                     rbac_blocked=False,
@@ -264,7 +258,7 @@ def create_app(
             return StreamingResponse(subscriber_stream(), media_type="text/event-stream")
 
         prompt = _build_prompt(request.query, tier, scopes, store)
-        model_used = getattr(selected_model_hook, "model_id", "default")
+        inference_engine_used = getattr(selected_model_hook, "inference_engine_id", "llama.cpp")
 
         async def inference_stream() -> AsyncGenerator[str, None]:
             full_response = []
@@ -282,7 +276,7 @@ def create_app(
                             user_id=user.id,
                             query=request.query,
                             response=final_text,
-                            model_used=model_used,
+                            inference_engine_used=inference_engine_used,
                             repo_scope=scopes,
                             created_at=time.time(),
                         )
@@ -293,7 +287,7 @@ def create_app(
                         access_tier=tier,
                         query_hash=query_hash,
                         repo_scope=scopes,
-                        model_used=model_used,
+                        inference_engine_used=inference_engine_used,
                         latency_ms=(time.time() - start_time) * 1000,
                         cache_hit=False,
                         rbac_blocked=False,

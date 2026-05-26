@@ -1,30 +1,26 @@
-import pytest
-from inference.hardware import HardwareProfiler
-from inference.registry import ModelRegistry
+from inference.registry import InferenceEngineRegistry
 
-class MockProfiler:
-    def __init__(self, profile):
-        self.profile = profile
-    def get_profile(self):
-        return self.profile
 
-def test_model_registry_gpu_dual():
-    registry = ModelRegistry(MockProfiler("gpu-dual"))
-    assert registry.get_available_models() == ["7b", "14b", "32b"]
-    assert registry.get_model_for_task("repo-analysis") == "32b"
-    assert registry.get_model_for_task("unknown") == "7b"
+def test_inference_engine_registry_returns_llamacpp_completion_endpoint_only():
+    registry = InferenceEngineRegistry(
+        base_url="http://llamacpp:8080/",
+        engine_id="llama.cpp",
+    )
 
-def test_model_registry_gpu_single():
-    registry = ModelRegistry(MockProfiler("gpu-single"))
-    assert registry.get_available_models() == ["7b", "14b"]
-    assert registry.get_model_for_task("repo-analysis") == "14b"
-    assert registry.get_model_for_task("complex-task") == "14b"
+    endpoint = registry.get_engine_endpoint()
 
-def test_model_registry_cpu_large():
-    registry = ModelRegistry(MockProfiler("cpu-large"))
-    assert registry.get_available_models() == ["7b", "14b"]
+    assert endpoint.url == "http://llamacpp:8080/completion"
+    assert endpoint.health_url == "http://llamacpp:8080/health"
+    assert endpoint.engine_id == "llama.cpp"
+    assert not hasattr(registry, "get_available_models")
+    assert not hasattr(registry, "get_model_for_task")
 
-def test_model_registry_cpu_small():
-    registry = ModelRegistry(MockProfiler("cpu-small"))
-    assert registry.get_available_models() == ["7b"]
-    assert registry.get_model_for_task("repo-analysis") == "7b"
+
+def test_inference_engine_registry_rejects_blank_llamacpp_base_url():
+    registry = InferenceEngineRegistry(base_url="")
+
+    try:
+        registry.get_engine_endpoint()
+        assert False
+    except ValueError as exc:
+        assert "llama.cpp base url" in str(exc).lower()

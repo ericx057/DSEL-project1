@@ -26,7 +26,7 @@ class StaticVerifier:
 # --- Mock the Model Hook to avoid real HuggingFace API calls during tests ---
 class MockModelHook(ModelHook):
     def __init__(self, circuit_breaker=None):
-        super().__init__(model_id="mock", circuit_breaker=circuit_breaker)
+        super().__init__(inference_engine_id="mock-engine", circuit_breaker=circuit_breaker, client=None)
         
     async def generate_stream(self, prompt: str):
         await asyncio.sleep(0.01)
@@ -61,6 +61,14 @@ def test_app():
     
     yield app, rl_repo, cache_repo, audit_repo
     app.dependency_overrides.clear()
+
+@pytest.mark.asyncio
+async def test_models_endpoint_is_not_exposed(test_app):
+    fastapi_app, _, _, _ = test_app
+    async with AsyncClient(transport=ASGITransport(app=fastapi_app), base_url="http://test") as ac:
+        response = await ac.get("/models")
+
+    assert response.status_code == 404
 
 @pytest.mark.asyncio
 async def test_standard_query_flow(test_app):
@@ -117,7 +125,7 @@ async def test_request_coalescing(test_app):
     
     class SlowMockModelHook(ModelHook):
         def __init__(self):
-            super().__init__(model_id="mock")
+            super().__init__(inference_engine_id="slow-mock-engine", client=None)
         async def generate_stream(self, prompt: str):
             await asyncio.sleep(0.1) # Simulate slow inference
             yield "Slow "
