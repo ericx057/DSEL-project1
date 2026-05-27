@@ -32,7 +32,7 @@ def test_binary_ratio():
 def test_max_line_length():
     heuristics = FileHeuristics(max_line_length=10)
     with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp:
-        tmp.write("a" * 15 + "\n")
+        tmp.write(("ok\n" * 10) + ("a" * 15) + "\n")
         tmp_name = tmp.name
     try:
         assert not heuristics.is_human_readable(tmp_name)

@@ -1,5 +1,6 @@
 import os
 import tempfile
+from pathlib import Path
 from src.UMMDB.parser.cascade import CascadingParser, BaseParser, ParsedChunk
 
 class MockParser(BaseParser):
@@ -39,3 +40,14 @@ def test_base_parser():
     base = BaseParser()
     assert base.can_parse("file.py", "python") is False
     assert base.parse("file.py", "python") == []
+
+
+def test_cascade_prefers_real_python_ast_over_fake_tree_sitter(tmp_path: Path):
+    source = tmp_path / "sample.py"
+    source.write_text("def foo():\n    return 1\n", encoding="utf-8")
+
+    chunks = CascadingParser().parse(str(source), "python")
+
+    assert len(chunks) >= 3
+    assert chunks[0].metadata["parser"] == "python-ast"
+    assert any(chunk.symbol_name == "foo" and chunk.kind == "function" for chunk in chunks)
