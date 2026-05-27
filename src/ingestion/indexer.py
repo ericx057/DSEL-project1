@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast
 import mimetypes
 import re
 from dataclasses import dataclass
@@ -8,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from src.retrieval.database import ArtifactRecord, GraphEdgeRecord, SQLiteUnifiedStore
+from src.UMMDB.parser.cascade import CascadingParser, ParsedChunk
 from src.UMMDB.parser.filters import FileHeuristics
 
 
@@ -18,19 +18,6 @@ class IndexReport:
     files_skipped: int
     artifacts_indexed: int
     edges_indexed: int
-
-
-@dataclass(frozen=True)
-class _Symbol:
-    name: str
-    qualified_name: str
-    kind: str
-    signature: str
-    line_start: int
-    line_end: int
-    text: str
-    calls: Tuple[str, ...]
-    inherits: Tuple[str, ...] = ()
 
 
 class RepositoryIndexer:
@@ -68,10 +55,12 @@ class RepositoryIndexer:
         store: SQLiteUnifiedStore,
         heuristics: Optional[FileHeuristics] = None,
         exclusions: Sequence[str] = DEFAULT_EXCLUDES,
+        parser: Optional[CascadingParser] = None,
     ):
         self.store = store
         self.exclusions = set(exclusions)
         self.heuristics = heuristics or FileHeuristics()
+        self.parser = parser or CascadingParser()
 
     def index_repository(self, repository: str, repo_path: str | Path) -> IndexReport:
         root = Path(repo_path).resolve()
@@ -160,88 +149,144 @@ class RepositoryIndexer:
         if self._contains_secret_pattern(content):
             return [], []
 
-        if language == "python":
-            return self._index_python_file(repository, relative_path, content)
-        return self._index_text_file(repository, relative_path, language, content)
+        chunks = self.parser.parse(str(file_path), language)
+        if not chunks:
+            return self._index_text_file(repository, relative_path, language, content)
+        return self._index_chunks(repository, relative_path, language, chunks)
 
-    def _index_python_file(
+    def _index_chunks(
         self,
         repository: str,
         relative_path: str,
-        content: str,
+        language: str,
+        chunks: Sequence[ParsedChunk],
     ) -> Tuple[List[ArtifactRecord], List[GraphEdgeRecord]]:
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
-            return self._index_text_file(repository, relative_path, "text", content)
+        artifacts: List[ArtifactRecord] = []
+        chunk_ids: Dict[int, str] = {}
+        qualified_ids: Dict[str, str] = {}
+        short_name_ids: Dict[str, set[str]] = {}
 
-        symbols = _PythonSymbolVisitor(content).collect(tree)
-        artifacts: List[ArtifactRecord] = [
-            ArtifactRecord(
-                artifact_id=self._artifact_id(repository, relative_path, "module", 1),
-                repository=repository,
-                file_path=relative_path,
-                language="python",
-                text=f"module {relative_path}",
-                tier=1,
-                fidelity="L-1",
-                symbol_name=relative_path,
-                line_start=1,
-                line_end=max(1, content.count("\n") + 1),
-                kind="module",
-            )
-        ]
-        symbol_ids_by_name: Dict[str, str] = {}
-        for symbol in symbols:
-            interface_id = self._artifact_id(repository, relative_path, symbol.qualified_name, 1)
-            implementation_id = self._artifact_id(repository, relative_path, symbol.qualified_name, 3)
-            symbol_ids_by_name[symbol.name] = interface_id
-            symbol_ids_by_name[symbol.qualified_name] = interface_id
+        for index, chunk in enumerate(chunks, start=1):
+            symbol = self._chunk_symbol(relative_path, chunk, index)
+            artifact_id = self._artifact_id(repository, relative_path, symbol, chunk.tier)
+            chunk_ids[id(chunk)] = artifact_id
             artifacts.append(
                 ArtifactRecord(
-                    artifact_id=interface_id,
+                    artifact_id=artifact_id,
                     repository=repository,
                     file_path=relative_path,
-                    language="python",
-                    text=symbol.signature,
-                    tier=1,
-                    fidelity="L-1",
-                    symbol_name=symbol.name,
-                    line_start=symbol.line_start,
-                    line_end=symbol.line_start,
-                    kind=symbol.kind,
-                    metadata={"qualified_name": symbol.qualified_name},
+                    language=language,
+                    text=chunk.content,
+                    tier=chunk.tier,
+                    fidelity=chunk.fidelity,
+                    symbol_name=chunk.symbol_name or symbol,
+                    line_start=chunk.line_start,
+                    line_end=chunk.line_end,
+                    kind=chunk.kind,
+                    metadata=chunk.metadata,
                 )
             )
-            artifacts.append(
-                ArtifactRecord(
-                    artifact_id=implementation_id,
-                    repository=repository,
-                    file_path=relative_path,
-                    language="python",
-                    text=symbol.text,
-                    tier=3,
-                    fidelity="L-1",
-                    symbol_name=symbol.name,
-                    line_start=symbol.line_start,
-                    line_end=symbol.line_end,
-                    kind=f"{symbol.kind}-implementation",
-                    metadata={"qualified_name": symbol.qualified_name},
-                )
-            )
+            if chunk.tier == 1 and chunk.kind != "module":
+                qualified_name = self._chunk_qualified_name(chunk)
+                if qualified_name:
+                    qualified_ids[qualified_name] = artifact_id
+                if chunk.symbol_name:
+                    short_name_ids.setdefault(chunk.symbol_name, set()).add(artifact_id)
 
-        edges: List[GraphEdgeRecord] = []
-        for symbol in symbols:
-            source_id = self._artifact_id(repository, relative_path, symbol.qualified_name, 1)
-            for call in symbol.calls:
-                target_id = symbol_ids_by_name.get(call)
-                if target_id:
-                    edges.append(GraphEdgeRecord(source_id, target_id, "calls"))
-            for parent in symbol.inherits:
-                target_id = symbol_ids_by_name.get(parent)
-                if target_id:
-                    edges.append(GraphEdgeRecord(source_id, target_id, "inherits"))
+        edges = self._build_edges(chunks, chunk_ids, qualified_ids, short_name_ids)
         return artifacts, edges
+
+    def _build_edges(
+        self,
+        chunks: Sequence[ParsedChunk],
+        chunk_ids: Dict[int, str],
+        qualified_ids: Dict[str, str],
+        short_name_ids: Dict[str, set[str]],
+    ) -> List[GraphEdgeRecord]:
+        seen: set[Tuple[str, str, str]] = set()
+        edges: List[GraphEdgeRecord] = []
+        for chunk in chunks:
+            if chunk.tier != 1 or chunk.kind == "module":
+                continue
+            source_id = chunk_ids[id(chunk)]
+            source_qualified_name = self._chunk_qualified_name(chunk)
+            for call in chunk.calls:
+                target_id = self._resolve_symbol_reference(
+                    call,
+                    source_qualified_name,
+                    qualified_ids,
+                    short_name_ids,
+                )
+                if target_id:
+                    self._append_edge(edges, seen, source_id, target_id, "calls")
+            for parent in chunk.inherits:
+                target_id = self._resolve_symbol_reference(
+                    parent,
+                    source_qualified_name,
+                    qualified_ids,
+                    short_name_ids,
+                )
+                if target_id:
+                    self._append_edge(edges, seen, source_id, target_id, "inherits")
+        return edges
+
+    @staticmethod
+    def _append_edge(
+        edges: List[GraphEdgeRecord],
+        seen: set[Tuple[str, str, str]],
+        source_id: str,
+        target_id: str,
+        relationship: str,
+    ) -> None:
+        edge_key = (source_id, target_id, relationship)
+        if source_id == target_id or edge_key in seen:
+            return
+        seen.add(edge_key)
+        edges.append(GraphEdgeRecord(source_id, target_id, relationship))
+
+    @staticmethod
+    def _chunk_symbol(relative_path: str, chunk: ParsedChunk, index: int) -> str:
+        if chunk.kind == "module":
+            return "module"
+        qualified_name = RepositoryIndexer._chunk_qualified_name(chunk)
+        if qualified_name:
+            return qualified_name
+        if chunk.symbol_name:
+            return chunk.symbol_name
+        return f"chunk-{index}"
+
+    @staticmethod
+    def _chunk_qualified_name(chunk: ParsedChunk) -> Optional[str]:
+        qualified_name = chunk.metadata.get("qualified_name")
+        if isinstance(qualified_name, str) and qualified_name:
+            return qualified_name
+        return chunk.symbol_name
+
+    @staticmethod
+    def _resolve_symbol_reference(
+        reference: str,
+        source_qualified_name: Optional[str],
+        qualified_ids: Dict[str, str],
+        short_name_ids: Dict[str, set[str]],
+    ) -> Optional[str]:
+        if "." in reference and reference in qualified_ids:
+            return qualified_ids[reference]
+
+        if source_qualified_name and reference.startswith(("self.", "cls.")):
+            if "." in source_qualified_name:
+                class_scope = source_qualified_name.rsplit(".", 1)[0]
+                scoped_reference = f"{class_scope}.{reference.split('.', 1)[1]}"
+                if scoped_reference in qualified_ids:
+                    return qualified_ids[scoped_reference]
+
+        if "." in reference:
+            short_reference = reference.split(".")[-1]
+            candidates = short_name_ids.get(short_reference, set())
+        else:
+            candidates = short_name_ids.get(reference, set())
+        if len(candidates) == 1:
+            return next(iter(candidates))
+        return None
 
     def _index_text_file(
         self,
@@ -307,96 +352,3 @@ class RepositoryIndexer:
     def _contains_secret_pattern(cls, content: str) -> bool:
         sample = content[:8192]
         return any(pattern.search(sample) for pattern in cls.SECRET_PATTERNS)
-
-
-class _PythonSymbolVisitor(ast.NodeVisitor):
-    def __init__(self, content: str):
-        self.content = content
-        self.parents: List[str] = []
-        self.symbols: List[_Symbol] = []
-
-    def collect(self, tree: ast.AST) -> List[_Symbol]:
-        self.visit(tree)
-        return self.symbols
-
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        qualified_name = ".".join([*self.parents, node.name]) if self.parents else node.name
-        self.symbols.append(
-            _Symbol(
-                name=node.name,
-                qualified_name=qualified_name,
-                kind="class",
-                signature=self._class_signature(node),
-                line_start=node.lineno,
-                line_end=getattr(node, "end_lineno", node.lineno),
-                text=ast.get_source_segment(self.content, node) or self._class_signature(node),
-                calls=tuple(_CallVisitor.collect_calls(node)),
-                inherits=tuple(self._name(base) for base in node.bases if self._name(base)),
-            )
-        )
-        self.parents.append(node.name)
-        self.generic_visit(node)
-        self.parents.pop()
-
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        self._visit_function(node)
-
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        self._visit_function(node)
-
-    def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        qualified_name = ".".join([*self.parents, node.name]) if self.parents else node.name
-        self.symbols.append(
-            _Symbol(
-                name=node.name,
-                qualified_name=qualified_name,
-                kind="function" if not self.parents else "method",
-                signature=self._function_signature(node),
-                line_start=node.lineno,
-                line_end=getattr(node, "end_lineno", node.lineno),
-                text=ast.get_source_segment(self.content, node) or self._function_signature(node),
-                calls=tuple(_CallVisitor.collect_calls(node)),
-            )
-        )
-        self.parents.append(node.name)
-        self.generic_visit(node)
-        self.parents.pop()
-
-    @staticmethod
-    def _function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
-        prefix = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
-        args = [arg.arg for arg in node.args.args]
-        return f"{prefix} {node.name}({', '.join(args)})"
-
-    @staticmethod
-    def _class_signature(node: ast.ClassDef) -> str:
-        bases = [name for base in node.bases if (name := _PythonSymbolVisitor._name(base))]
-        return f"class {node.name}({', '.join(bases)})" if bases else f"class {node.name}"
-
-    @staticmethod
-    def _name(node: ast.AST) -> Optional[str]:
-        if isinstance(node, ast.Name):
-            return node.id
-        if isinstance(node, ast.Attribute):
-            parent = _PythonSymbolVisitor._name(node.value)
-            return f"{parent}.{node.attr}" if parent else node.attr
-        return None
-
-
-class _CallVisitor(ast.NodeVisitor):
-    def __init__(self):
-        self.calls: List[str] = []
-
-    @classmethod
-    def collect_calls(cls, node: ast.AST) -> List[str]:
-        visitor = cls()
-        visitor.visit(node)
-        return visitor.calls
-
-    def visit_Call(self, node: ast.Call) -> None:
-        name = _PythonSymbolVisitor._name(node.func)
-        if name:
-            self.calls.append(name.split(".")[-1])
-            if "." in name:
-                self.calls.append(name)
-        self.generic_visit(node)

@@ -1,11 +1,19 @@
-from typing import List, Dict, Any, Optional
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional, Tuple
 import os
 
+@dataclass(frozen=True)
 class ParsedChunk:
-    def __init__(self, content: str, fidelity: str, metadata: Dict[str, Any] = None):
-        self.content = content
-        self.fidelity = fidelity
-        self.metadata = metadata or {}
+    content: str
+    fidelity: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    symbol_name: Optional[str] = None
+    line_start: int = 1
+    line_end: int = 1
+    kind: str = "chunk"
+    tier: int = 3
+    calls: Tuple[str, ...] = ()
+    inherits: Tuple[str, ...] = ()
 
 class BaseParser:
     def can_parse(self, file_path: str, language: Optional[str]) -> bool:
@@ -14,6 +22,7 @@ class BaseParser:
     def parse(self, file_path: str, language: Optional[str]) -> List[ParsedChunk]:
         return []
 
+from .python_ast import PythonAstParser
 from .tree_sitter import TreeSitterParser
 from .ctags import CtagsParser
 from .fallback import RegexParser, SlidingWindowParser
@@ -21,6 +30,7 @@ from .fallback import RegexParser, SlidingWindowParser
 class CascadingParser(BaseParser):
     def __init__(self):
         self.parsers = [
+            PythonAstParser(),
             TreeSitterParser(),
             CtagsParser(),
             RegexParser(),

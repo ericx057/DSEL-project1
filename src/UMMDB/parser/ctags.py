@@ -1,10 +1,41 @@
 import os
 import subprocess
+from pathlib import Path
 from typing import List, Optional
+
+SUPPORTED_LANGUAGES = {
+    "python",
+    "javascript",
+    "typescript",
+    "go",
+    "rust",
+    "c",
+    "cpp",
+    "java",
+    "csharp",
+}
+
+EXTENSION_LANGUAGES = {
+    ".py": "python",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".go": "go",
+    ".rs": "rust",
+    ".c": "c",
+    ".h": "c",
+    ".cpp": "cpp",
+    ".hpp": "cpp",
+    ".java": "java",
+    ".cs": "csharp",
+}
 
 class CtagsParser:
     def can_parse(self, file_path: str, language: Optional[str]) -> bool:
-        # Check if ctags is available
+        language_name = (language or EXTENSION_LANGUAGES.get(Path(file_path).suffix.lower()) or "").lower()
+        if language_name not in SUPPORTED_LANGUAGES:
+            return False
         try:
             subprocess.run(['ctags', '--version'], capture_output=True, check=False)
             return True
@@ -24,10 +55,6 @@ class CtagsParser:
                 if line.strip():
                     chunks.append(ParsedChunk(line.strip(), "L-2", {"parser": "ctags"}))
                     
-            if not chunks:
-                # If ctags yielded no symbols, we might just read a bit
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    chunks.append(ParsedChunk(f.read()[:500], "L-2", {"parser": "ctags-fallback"}))
             return chunks
         except Exception:
             raise

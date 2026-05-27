@@ -31,7 +31,7 @@ def test_ctags_parse_success(monkeypatch):
     assert chunks[0].content == "symbol1"
     assert chunks[0].fidelity == "L-2"
 
-def test_ctags_parse_fallback(monkeypatch):
+def test_ctags_parse_returns_empty_when_no_symbols(monkeypatch):
     class MockResult:
         stdout = "\n" # empty or blank
         
@@ -44,9 +44,7 @@ def test_ctags_parse_fallback(monkeypatch):
         f.write("some code here")
         f.close()
         chunks = parser.parse(f.name, None)
-        assert len(chunks) == 1
-        assert chunks[0].fidelity == "L-2"
-        assert chunks[0].content == "some code here"
+        assert chunks == []
         os.unlink(f.name)
 
 def test_ctags_parse_exception(monkeypatch):

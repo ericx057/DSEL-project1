@@ -27,15 +27,8 @@ class FileHeuristics:
                     return False
             
             with open(file_path, 'r', encoding='utf-8') as f:
-                total_length = 0
-                lines = 0
                 for line in f:
-                    total_length += len(line)
-                    lines += 1
-                
-                if lines > 0:
-                    avg_length = total_length / lines
-                    if avg_length > self.max_line_length:
+                    if len(line.rstrip("\r\n")) > self.max_line_length:
                         return False
             
             return True
