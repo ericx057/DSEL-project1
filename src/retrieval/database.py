@@ -109,47 +109,6 @@ class HashingEmbeddingProvider:
         return re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text.lower())
 
 
-QUERY_STOPWORDS = {
-    "a",
-    "an",
-    "and",
-    "are",
-    "artifact",
-    "as",
-    "at",
-    "be",
-    "by",
-    "callee",
-    "confirm",
-    "contains",
-    "correspond",
-    "defined",
-    "does",
-    "file",
-    "for",
-    "from",
-    "in",
-    "indexed",
-    "is",
-    "it",
-    "kind",
-    "kinds",
-    "of",
-    "on",
-    "or",
-    "public",
-    "repository",
-    "symbol",
-    "the",
-    "to",
-    "what",
-    "where",
-    "whether",
-    "which",
-    "with",
-}
-
-
 class SQLiteUnifiedStore(UnifiedStore):
     def __init__(self, db_path: str | Path, embedding_provider: Optional[EmbeddingProvider] = None):
         self.db_path = Path(db_path)
@@ -285,7 +244,7 @@ class SQLiteUnifiedStore(UnifiedStore):
         query_embedding = self.embedding_provider.embed(query)
         rows = self._select_allowed_artifacts(user_tier, repo_scope)
         scored = []
-        query_terms = self._signal_terms(query)
+        query_terms = set(HashingEmbeddingProvider._tokens(query))
         for row in rows:
             embedding = json.loads(row["embedding"])
             cosine = self._cosine(query_embedding, embedding)
@@ -350,13 +309,6 @@ class SQLiteUnifiedStore(UnifiedStore):
                 edges.append(dict(row))
         return edges
 
-    def list_artifacts(
-        self,
-        user_tier: int,
-        repo_scope: Optional[Sequence[str]] = None,
-    ) -> List[Dict[str, Any]]:
-        return [self._row_to_dict(row) for row in self._select_allowed_artifacts(user_tier, repo_scope)]
-
     def get_artifacts_by_ids(self, artifact_ids: Sequence[str], user_tier: int) -> List[Dict[str, Any]]:
         if not artifact_ids:
             return []
@@ -383,31 +335,19 @@ class SQLiteUnifiedStore(UnifiedStore):
         return list(self._connection.execute(query, params))
 
     def _find_anchor_ids(self, query: str, allowed: Dict[str, sqlite3.Row]) -> List[str]:
-        terms = self._signal_terms(query)
+        terms = set(HashingEmbeddingProvider._tokens(query))
         anchors = []
         for artifact_id, row in allowed.items():
             haystack = " ".join(
                 [
-                    artifact_id,
                     row["symbol_name"] or "",
                     row["file_path"],
                     row["text"],
-                    row["metadata"],
                 ]
             ).lower()
-            score = sum(1 for term in terms if term in haystack)
-            if score:
-                anchors.append((score, artifact_id))
-        anchors.sort(key=lambda item: (-item[0], item[1]))
-        return [artifact_id for _, artifact_id in anchors]
-
-    @staticmethod
-    def _signal_terms(query: str) -> set[str]:
-        return {
-            term
-            for term in HashingEmbeddingProvider._tokens(query)
-            if term not in QUERY_STOPWORDS and len(term) > 1
-        }
+            if any(term in haystack for term in terms):
+                anchors.append(artifact_id)
+        return anchors
 
     def _outgoing_edges(self, artifact_id: str) -> List[sqlite3.Row]:
         priority = {"calls": 0, "defines": 1, "imports": 2, "inherits": 3, "uses": 4, "bridges": 5}
