@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import mimetypes
 import re
-from dataclasses import dataclass
+from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -18,6 +19,7 @@ class IndexReport:
     files_skipped: int
     artifacts_indexed: int
     edges_indexed: int
+    skipped_by_reason: Dict[str, int] = field(default_factory=dict)
 
 
 class RepositoryIndexer:
@@ -72,16 +74,24 @@ class RepositoryIndexer:
         edges: List[GraphEdgeRecord] = []
         files_indexed = 0
         files_skipped = 0
+        skipped_by_reason: Dict[str, int] = defaultdict(int)
 
         for file_path in self._iter_files(root):
-            if self._is_excluded(root, file_path) or self._is_sensitive_path(root, file_path):
+            if self._is_excluded(root, file_path):
+                skipped_by_reason["excluded_path"] += 1
+                files_skipped += 1
+                continue
+            if self._is_sensitive_path(root, file_path):
+                skipped_by_reason["sensitive_path"] += 1
                 files_skipped += 1
                 continue
             if not self.heuristics.is_human_readable(str(file_path)):
+                skipped_by_reason["not_human_readable"] += 1
                 files_skipped += 1
                 continue
-            file_artifacts, file_edges = self._index_file(repository, root, file_path)
+            file_artifacts, file_edges, skip_reason = self._index_file(repository, root, file_path)
             if not file_artifacts:
+                skipped_by_reason[skip_reason or "no_artifacts"] += 1
                 files_skipped += 1
                 continue
             artifacts.extend(file_artifacts)
@@ -96,6 +106,7 @@ class RepositoryIndexer:
             files_skipped=files_skipped,
             artifacts_indexed=len(artifacts),
             edges_indexed=len(edges),
+            skipped_by_reason=dict(sorted(skipped_by_reason.items())),
         )
 
     def _iter_files(self, root: Path) -> Iterable[Path]:
@@ -124,7 +135,7 @@ class RepositoryIndexer:
         repository: str,
         root: Path,
         file_path: Path,
-    ) -> Tuple[List[ArtifactRecord], List[GraphEdgeRecord]]:
+    ) -> Tuple[List[ArtifactRecord], List[GraphEdgeRecord], Optional[str]]:
         relative_path = file_path.relative_to(root).as_posix()
         language = self._detect_language(file_path)
         content = file_path.read_text(encoding="utf-8")
@@ -144,15 +155,17 @@ class RepositoryIndexer:
                     kind="module",
                     metadata={"generated": True},
                 )
-            ], []
+            ], [], None
 
         if self._contains_secret_pattern(content):
-            return [], []
+            return [], [], "secret_pattern"
 
         chunks = self.parser.parse(str(file_path), language)
         if not chunks:
-            return self._index_text_file(repository, relative_path, language, content)
-        return self._index_chunks(repository, relative_path, language, chunks)
+            artifacts, edges = self._index_text_file(repository, relative_path, language, content)
+            return artifacts, edges, None if artifacts else "empty_or_unparseable"
+        artifacts, edges = self._index_chunks(repository, relative_path, language, chunks)
+        return artifacts, edges, None if artifacts else "empty_or_unparseable"
 
     def _index_chunks(
         self,
