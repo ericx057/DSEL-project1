@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from retrieval.reranker import Reranker
+from retrieval.reranker import LexicalReranker, Reranker
 
 def test_reranker_mock_scoring():
     reranker = Reranker(use_mock=True)
@@ -49,3 +49,97 @@ def test_reranker_real_scoring(MockCrossEncoder):
 def test_reranker_missing_library():
     with pytest.raises(ImportError):
         Reranker(use_mock=False)
+
+
+def test_lexical_reranker_prioritizes_exact_paths_and_extensions():
+    reranker = LexicalReranker()
+    chunks = [
+        {"id": "generic", "file_path": "README.md", "text": "generic schema examples"},
+        {
+            "id": "target",
+            "file_path": "examples/widget.part",
+            "text": "metadata.material = Steel",
+        },
+        {
+            "id": "schema",
+            "file_path": "schemas/part.schema.json",
+            "text": "title = Generic Part Schema",
+        },
+    ]
+
+    ranked = reranker.rerank(
+        "In examples/widget.part, what is metadata.material and the .part schema title?",
+        chunks,
+        top_m=3,
+    )
+
+    assert ranked[0]["id"] == "target"
+    assert ranked[1]["id"] == "schema"
+
+
+def test_lexical_reranker_uses_text_matches_without_filename_policy_boosts():
+    reranker = LexicalReranker()
+    chunks = [
+        {
+            "id": "directory-file",
+            "file_path": "docs/reference.md",
+            "text": "API reference",
+        },
+        {
+            "id": "rules",
+            "file_path": "RULES.md",
+            "text": "Files under `docs/` require Platform approval before release.",
+        },
+        {
+            "id": "owner",
+            "file_path": "OWNERS.md",
+            "text": "The Platform team owns approval for files under `docs/`.",
+        },
+    ]
+
+    ranked = reranker.rerank(
+        "Which rules explain approval for `docs/` files?",
+        chunks,
+        top_m=3,
+    )
+
+    assert [item["id"] for item in ranked[:2]] == ["rules", "owner"]
+
+
+def test_lexical_reranker_keeps_file_diversity_before_duplicates():
+    reranker = LexicalReranker()
+    chunks = [
+        {"id": "a1", "file_path": "a.md", "text": "query query query"},
+        {"id": "a2", "file_path": "a.md", "text": "query query"},
+        {"id": "b1", "file_path": "b.md", "text": "query"},
+    ]
+
+    ranked = reranker.rerank("query", chunks, top_m=2)
+
+    assert [item["id"] for item in ranked] == ["a1", "b1"]
+
+
+def test_lexical_reranker_keeps_basename_diversity_before_sibling_configs():
+    reranker = LexicalReranker()
+    chunks = [
+        {"id": "root-config", "file_path": "pyproject.toml", "text": "project metadata"},
+        {"id": "example-config", "file_path": "examples/demo/pyproject.toml", "text": "project metadata"},
+        {"id": "doc", "file_path": "docs/install.rst", "text": "install docs"},
+    ]
+
+    ranked = reranker.rerank("Which `install.rst` documentation page and `pyproject.toml` file?", chunks, top_m=3)
+
+    assert {item["id"] for item in ranked[:2]} == {"doc", "root-config"}
+
+
+def test_lexical_reranker_boosts_generic_path_tokens_and_light_stems():
+    reranker = LexicalReranker()
+    chunks = [
+        {"id": "generic", "file_path": "docs/overview.md", "text": "schema version release"},
+        {"id": "version", "file_path": "VERSION", "text": "1.2.3"},
+        {"id": "script", "file_path": "tools/validate_repo.py", "text": "checks schema files"},
+    ]
+
+    ranked = reranker.rerank("Which validation script checks the version string?", chunks, top_m=3)
+
+    assert {item["id"] for item in ranked[:2]} == {"script", "version"}

@@ -59,6 +59,36 @@ def test_repository_indexer_skips_binary_and_excluded_paths(tmp_path: Path):
     assert results == []
 
 
+def test_repository_indexer_limits_index_to_included_paths(tmp_path: Path):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    src = repo / "src"
+    opencad = repo / "external" / "OpenCAD" / "examples"
+    noise = repo / "external" / "generalization"
+    src.mkdir()
+    opencad.mkdir(parents=True)
+    noise.mkdir(parents=True)
+    (src / "assistant.py").write_text("def chat_assistant():\n    return 'OpenCAD help'", encoding="utf-8")
+    (opencad / "bracket_demo.ocp").write_text(
+        '{"metadata":{"name":"Bracket"},"geometry":{"features":[]}}',
+        encoding="utf-8",
+    )
+    (noise / "large_fixture.py").write_text("def unrelated_flask_fixture():\n    return True", encoding="utf-8")
+
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+    indexer = RepositoryIndexer(store, include_paths=("src", "external/OpenCAD"))
+
+    report = indexer.index_repository("repo-a", repo)
+    opencad_results = store.vector_search("bracket OpenCAD assistant", user_tier=3, repo_scope=["repo-a"], top_k=20)
+    noise_results = store.vector_search("unrelated_flask_fixture", user_tier=3, repo_scope=["repo-a"], top_k=20)
+
+    indexed_paths = {item["file_path"] for item in opencad_results}
+    assert report.files_indexed == 2
+    assert "src/assistant.py" in indexed_paths
+    assert "external/OpenCAD/examples/bracket_demo.ocp" in indexed_paths
+    assert all(item["file_path"] != "external/generalization/large_fixture.py" for item in noise_results)
+
+
 def test_repository_indexer_skips_sensitive_files_and_secret_patterns(tmp_path: Path):
     repo = tmp_path / "repo-a"
     repo.mkdir()
@@ -143,3 +173,97 @@ def test_repository_indexer_resolves_method_calls_without_short_name_collisions(
     run_id = "repo-a:app.py:A.run:T1"
     target_ids = {edge["target_id"] for edge in edges if edge["source_id"] == run_id}
     assert target_ids == {"repo-a:app.py:A.helper:T1"}
+
+
+def test_repository_indexer_builds_json_document_schema_and_reference_edges(tmp_path: Path):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    schemas = repo / "schemas"
+    examples = repo / "examples"
+    schemas.mkdir()
+    examples.mkdir()
+    (schemas / "part.schema.json").write_text(
+        '{"title":"Generic Part Schema","properties":{"metadata":{"type":"object"}}}',
+        encoding="utf-8",
+    )
+    (examples / "widget.part").write_text(
+        '{"metadata":{"name":"Widget","material":"Steel"},"history":[]}',
+        encoding="utf-8",
+    )
+    (examples / "assembly.json").write_text(
+        '{"instances":[{"id":"widget-1","source":"./widget.part"}]}',
+        encoding="utf-8",
+    )
+
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+    indexer = RepositoryIndexer(store)
+
+    report = indexer.index_repository("repo-a", repo)
+    results = store.vector_search(
+        "examples/widget.part metadata.material Steel",
+        user_tier=3,
+        repo_scope=["repo-a"],
+        top_k=10,
+    )
+    schema_edges = store.list_edges(user_tier=3, repo_scope=["repo-a"], relationship="validated-by")
+    reference_edges = store.list_edges(user_tier=3, repo_scope=["repo-a"], relationship="references")
+    graph_results = store.graph_search(
+        "widget-1 metadata.material",
+        user_tier=3,
+        repo_scope=["repo-a"],
+        depth=2,
+        breadth=20,
+    )
+
+    assert report.files_indexed == 3
+    assert any(
+        item["file_path"] == "examples/widget.part"
+        and item["kind"] == "json-document"
+        and item["language"] == "json"
+        and "metadata.material = Steel" in item["text"]
+        for item in results
+    )
+    assert any(
+        edge["source_id"] == "repo-a:examples/widget.part:json-document:T3"
+        and edge["target_id"] == "repo-a:schemas/part.schema.json:json-document:T3"
+        for edge in schema_edges
+    )
+    assert any(
+        edge["source_id"] == "repo-a:examples/assembly.json:json-document:T3"
+        and edge["target_id"] == "repo-a:examples/widget.part:json-document:T3"
+        for edge in reference_edges
+    )
+    assert any(item["file_path"] == "examples/widget.part" for item in graph_results)
+
+
+def test_repository_indexer_adds_generic_markdown_table_artifacts(tmp_path: Path):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    (repo / "README.md").write_text(
+        "\n".join(
+            [
+                "| Component | Owner | Purpose |",
+                "| --------- | ----- | ------- |",
+                "| API | Platform | Serves repository metadata. |",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+    RepositoryIndexer(store).index_repository("repo-a", repo)
+
+    results = store.vector_search(
+        "README table Platform repository metadata",
+        user_tier=3,
+        repo_scope=["repo-a"],
+        top_k=10,
+    )
+
+    assert any(
+        item["file_path"] == "README.md"
+        and item["kind"] == "markdown-table"
+        and "table[1].row[1].Owner = Platform" in item["text"]
+        and "table[1].row[1].Purpose = Serves repository metadata." in item["text"]
+        for item in results
+    )

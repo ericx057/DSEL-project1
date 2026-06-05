@@ -1,0 +1,5460 @@
+{
+  "per_question": [
+    {
+      "answer": "Insufficient retrieved context to determine inst_bracket_01 source_uri or uct[2].type. Evidence only defines assembly source_uri as a relative or absolute path to a .ocp or .oce file and notes that .ocp files require uct.",
+      "case_id": "S01-Q001",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[2].type` is `FILLET`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "FILLET"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "FILLET"
+        ]
+      ]
+    },
+    {
+      "answer": "Von_Mises_Stress points to bufferView index 2 via data: 2. The retrieved contexts do not provide bufferView 2 name, componentType, or buffer URI; they only define fields as mapping results to bufferViews and show the field example.",
+      "case_id": "S01-Q002",
+      "expected_answer": "Field `Von_Mises_Stress` uses bufferView index `2`, named `Von_Mises_Stress` with `FLOAT32` `SCALAR` data. That view points to buffer URI `./bracket_results_data.bin`.",
+      "missing_terms": [
+        [
+          "FLOAT32"
+        ],
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Von_Mises_Stress"
+        ],
+        [
+          "2"
+        ],
+        [
+          "Von_Mises_Stress"
+        ],
+        [
+          "FLOAT32"
+        ],
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ]
+      ]
+    },
+    {
+      "answer": "Schemas and examples are licensed under MIT. Contributions follow the license of the files being modified, so MIT-licensed areas are contributed under MIT.",
+      "case_id": "S01-Q003",
+      "expected_answer": "`schemas/` and `examples/` are MIT-licensed, and changes to MIT-licensed areas are contributed under MIT.",
+      "missing_terms": [
+        [
+          "schemas/"
+        ],
+        [
+          "examples/"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/"
+        ],
+        [
+          "examples/"
+        ],
+        [
+          "MIT"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine examples/bracket_stress_test.ocs header.generator or the .ocs schema title. The retrieved snippets mention validation of examples and show an unrelated .ocp schema title.",
+      "case_id": "S01-Q004",
+      "expected_answer": "`header.generator` in `examples/bracket_stress_test.ocs` is `OpenCAD_Sim_Manager_v1`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "OpenCAD_Sim_Manager_v1"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD_Sim_Manager_v1"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine results.status or the .ocs schema title. The retrieved snippets show unrelated .oce and .ocp schema titles plus general schema-change and UCT material.",
+      "case_id": "S01-Q005",
+      "expected_answer": "`results.status` in `examples/bracket_stress_test.ocs` is `UNSOLVED`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "UNSOLVED"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "UNSOLVED"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine nets[1].nodes[1]. Partial evidence: .oce contains logical electrical data, and the governing schema title is OpenCAD Electrical Definition (.oce).",
+      "case_id": "S01-Q006",
+      "expected_answer": "`nets[1].nodes[1]` in `examples/wiring_demo.oce` is `U1:5`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "U1:5"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "U1:5"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine bufferViews[1].name. Partial evidence: the .ocr schema title shown is OpenCAD Result Definition (.ocr).",
+      "case_id": "S01-Q007",
+      "expected_answer": "`bufferViews[1].name` in `examples/bracket_stress_result.ocr` is `Element_Connectivity`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "Element_Connectivity"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Element_Connectivity"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine instances[0].transform[2]. Partial evidence: the .oca schema title shown is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S01-Q008",
+      "expected_answer": "`instances[0].transform[2]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine the actual simulation file or load_force_01. Partial evidence: source_sim is defined as the URI to the .ocs file that generated a result, and an OCS example fragment shows a force vector [0, -100, 0] on a target ending in face_top.",
+      "case_id": "S01-Q009",
+      "expected_answer": "The result source simulation is `./bracket_stress_test.ocs`. The simulation load `load_force_01` is type `FORCE` on `inst_bracket_01:face_top`.",
+      "missing_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "inst_bracket_01:face_top"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "load_force_01"
+        ],
+        [
+          "FORCE"
+        ],
+        [
+          "inst_bracket_01:face_top"
+        ]
+      ]
+    },
+    {
+      "answer": "The .ocp format is OpenCAD Part, and the schema title is OpenCAD Part Definition (.ocp).",
+      "case_id": "S01-Q010",
+      "expected_answer": ".ocp is OpenCAD Part in README, described as Geometry, metadata, and unified parametric history. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Part"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ],
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine the actual simulation file or load_gravity. Partial evidence: source_sim is defined as the URI to the .ocs file that generated the result, and .ocs files contain FEA/CFD setup information, loads, and boundary conditions.",
+      "case_id": "S01-Q011",
+      "expected_answer": "The result source simulation is `./bracket_stress_test.ocs`. The simulation load `load_gravity` is type `GRAVITY` on `GLOBAL`.",
+      "missing_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "GLOBAL"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "load_gravity"
+        ],
+        [
+          "GRAVITY"
+        ],
+        [
+          "GLOBAL"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine bufferViews[0].name or the .ocr schema title. The retrieved snippets include unrelated .oce and .ocp schema titles and general validation/UCT material.",
+      "case_id": "S01-Q012",
+      "expected_answer": "`bufferViews[0].name` in `examples/bracket_stress_result.ocr` is `Nodal_Coordinates`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "Nodal_Coordinates"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Nodal_Coordinates"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine instances[0].source_uri or the .oca schema title. The retrieved snippets include unrelated .oce and .ocp schema titles and general example-validation material.",
+      "case_id": "S01-Q013",
+      "expected_answer": "`instances[0].source_uri` in `examples/assembly_demo.oca` is `./bracket_demo.ocp`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "The current maintainer is Nathan Sharp. The Governance section is Maintainer Authority, which points readers to MAINTAINERS.md for the current maintainer list.",
+      "case_id": "S01-Q014",
+      "expected_answer": "MAINTAINERS lists Nathan Sharp; GOVERNANCE points to MAINTAINERS.md for the current maintainer list.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "Nathan Sharp"
+        ],
+        [
+          "MAINTAINERS.md"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine components[0].part_number. Partial evidence: the applicable schema title is OpenCAD Electrical Definition (.oce).",
+      "case_id": "S01-Q015",
+      "expected_answer": "`components[0].part_number` in `examples/wiring_demo.oce` is `ATmega328P`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "ATmega328P"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "ATmega328P"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine header.generator. Partial evidence: the .oca file extension is covered by OpenCAD Assembly Definition (.oca).",
+      "case_id": "S01-Q016",
+      "expected_answer": "`header.generator` in `examples/assembly_demo.oca` is `OpenCAD_Assembly_Manager_v1`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "OpenCAD_Assembly_Manager_v1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD_Assembly_Manager_v1"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine the OCS target source URI or the assembly name. Partial evidence: OCS target.source_uri is defined as a URI to a .oca or .ocp file, and .oca files link .ocp and .oce files via URIs.",
+      "case_id": "S01-Q017",
+      "expected_answer": "`examples/bracket_stress_test.ocs` targets `./assembly_demo.oca`. The target assembly name in `examples/assembly_demo.oca` is `Bracket Sensor Assembly`.",
+      "missing_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "Bracket Sensor Assembly"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "Bracket Sensor Assembly"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine inst_sensor_01 source_uri or components[1].footprint. Partial evidence only says relative references in examples must point to repo files and that .oca is a global assembly format.",
+      "case_id": "S01-Q018",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `components[1].footprint` is `0603`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "0603"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "0603"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine uct[1].op_id. Partial evidence: the governing schema title for .ocp is OpenCAD Part Definition (.ocp).",
+      "case_id": "S01-Q019",
+      "expected_answer": "`uct[1].op_id` in `examples/bracket_demo.ocp` is `op_002`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "op_002"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "op_002"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine inst_bracket_01 source_uri or uct[1].params.sketch_ref. Partial evidence: source_uri is defined as a URI to a .oca or .ocp file, and relative references in examples must resolve.",
+      "case_id": "S01-Q020",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[1].params.sketch_ref` is `op_001`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "op_001"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "op_001"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine nets[0].nodes[2]. Partial evidence: the matching schema title is OpenCAD Electrical Definition (.oce).",
+      "case_id": "S01-Q021",
+      "expected_answer": "`nets[0].nodes[2]` in `examples/wiring_demo.oce` is `R1:1`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "R1:1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "R1:1"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine mesh.elements. Partial evidence: the .ocr schema title is OpenCAD Result Definition (.ocr).",
+      "case_id": "S01-Q022",
+      "expected_answer": "`mesh.elements` in `examples/bracket_stress_result.ocr` is `1`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "1"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to identify the production validator schema path or checked header version. Partial evidence: the working draft includes a Simulation Result Schema (.ocr) and shows the .ocr schema beginning, but no SCHEMA_BY_SUFFIX path or VERSION value is retrieved.",
+      "case_id": "S01-Q023",
+      "expected_answer": "The validator maps `.ocr` to `schemas/ocr.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "schemas/ocr.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/ocr.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine what inst_sensor_01 points to or nets[1].nodes[0]. The retrieved snippets are governance, conduct, license, changelog, and proposal context without the relevant example fields.",
+      "case_id": "S01-Q024",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `nets[1].nodes[0]` is `U1:3`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "U1:3"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "U1:3"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine uct[1].type. Partial evidence: .ocp is covered by OpenCAD Part Definition (.ocp), and .ocp files require header, metadata, and uct.",
+      "case_id": "S01-Q025",
+      "expected_answer": "`uct[1].type` in `examples/bracket_demo.ocp` is `EXTRUDE`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "EXTRUDE"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "EXTRUDE"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine inst_sensor_01 source_uri or components[2].part_number. Partial evidence: collect_relative_references inspects source_uri, source_sim, and uri fields, and examples may contain relative references.",
+      "case_id": "S01-Q026",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `components[2].part_number` is `CAP-100nF`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "CAP-100nF"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "CAP-100nF"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine instances[1].transform[5]. Partial evidence: .oca is covered by OpenCAD Assembly Definition (.oca).",
+      "case_id": "S01-Q027",
+      "expected_answer": "`instances[1].transform[5]` in `examples/assembly_demo.oca` is `1`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "1"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Files under specification/ are licensed under CC BY-SA 4.0. The contribution rule says contributions are licensed under the same license as the files modified, specifically specification/ files: CC BY-SA 4.0.",
+      "case_id": "S01-Q028",
+      "expected_answer": "Files under `specification/` are CC BY-SA 4.0, and CONTRIBUTING says changes to `specification/` use CC BY-SA 4.0.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "specification/"
+        ],
+        [
+          "CC BY-SA 4.0"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to identify the .ocr schema file selected by the validator or the exact header version that should pass. Partial evidence: README says validation checks schema compliance, and the changelog shows repository version 0.1, but no .ocr mapping or VERSION check is retrieved.",
+      "case_id": "S01-Q029",
+      "expected_answer": "The validator maps `.ocr` to `schemas/ocr.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "schemas/ocr.schema.json"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/ocr.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to identify collect_relative_references field names or the specific example result file using one to point to a simulation. Partial evidence: retrieved snippets discuss .ocr simulation results and preserving example resolvability, but not the function body or example metadata.",
+      "case_id": "S01-Q030",
+      "expected_answer": "`collect_relative_references` inspects `source_uri`, `source_sim`, and `uri`; `examples/bracket_stress_result.ocr` uses `source_sim`.",
+      "missing_terms": [
+        [
+          "source_uri"
+        ],
+        [
+          "source_sim"
+        ],
+        [
+          "uri"
+        ],
+        [
+          "bracket_stress_result.ocr"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "source_uri"
+        ],
+        [
+          "source_sim"
+        ],
+        [
+          "uri"
+        ],
+        [
+          "bracket_stress_result.ocr"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine the file referenced by inst_bracket_01 or uct[1].params.distance. Partial evidence: collect_relative_references gathers relative source_uri, source_sim, and uri values, and .ocp files contain the UCT.",
+      "case_id": "S01-Q031",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[1].params.distance` is `10.0`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "10.0",
+          "10"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "10.0",
+          "10"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine bufferViews[1].type or the .ocr schema title. The retrieved snippets contain validation/licensing/governance material and an unrelated proposal example using type EXTRUDE.",
+      "case_id": "S01-Q032",
+      "expected_answer": "`bufferViews[1].type` in `examples/bracket_stress_result.ocr` is `SCALAR`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "SCALAR"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "SCALAR"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to pair a README description with the .ocr schema title. Partial evidence: the working draft lists .ocr as Simulation Result, but the retrieved snippets do not show the README description or the .ocr schema title.",
+      "case_id": "S01-Q033",
+      "expected_answer": ".ocr is OpenCAD Result in README, described as Result metadata mapped to external binary buffers. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "OpenCAD Result"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ],
+        [
+          "Result metadata mapped to external binary buffers"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Result"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ],
+        [
+          "Result metadata mapped to external binary buffers"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to provide the README description for .ocp. Partial evidence: the schema title is OpenCAD Part Definition (.ocp), and the schema description says it contains geometry history and metadata.",
+      "case_id": "S01-Q034",
+      "expected_answer": ".ocp is OpenCAD Part in README, described as Geometry, metadata, and unified parametric history. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Part"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ],
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ]
+    },
+    {
+      "answer": "The retrieved contexts identify .oce as OpenCAD Electrical, containing schematic logic, netlists, and pin definitions or logical electrical data. The corresponding schema title is OpenCAD Electrical Definition (.oce).",
+      "case_id": "S01-Q035",
+      "expected_answer": ".oce is OpenCAD Electrical in README, described as Schematics, netlists, components, and electrical connectivity. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "Schematics, netlists, components, and electrical connectivity"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Electrical"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ],
+        [
+          "Schematics, netlists, components, and electrical connectivity"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine uct[0].type. Partial evidence: the matching schema title is OpenCAD Part Definition (.ocp).",
+      "case_id": "S01-Q036",
+      "expected_answer": "`uct[0].type` in `examples/bracket_demo.ocp` is `SKETCH`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "SKETCH"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "SKETCH"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine setup.boundary_conditions[0].target_entity or the .ocs schema title. The retrieved snippets are validation/licensing/governance material plus an unrelated .oce schema title.",
+      "case_id": "S01-Q037",
+      "expected_answer": "`setup.boundary_conditions[0].target_entity` in `examples/bracket_stress_test.ocs` is `inst_bracket_01:face_back`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "inst_bracket_01:face_back"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01:face_back"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine metadata.material. Partial evidence: the applicable .ocp schema title is OpenCAD Part Definition (.ocp).",
+      "case_id": "S01-Q038",
+      "expected_answer": "`metadata.material` in `examples/bracket_demo.ocp` is `Aluminum 6061-T6`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "Aluminum 6061-T6"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Aluminum 6061-T6"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine setup.loads[1].id. Partial evidence: the governing schema title is OpenCAD Simulation Definition (.ocs), described as containing FEA/CFD setup, loads, and boundary conditions.",
+      "case_id": "S01-Q039",
+      "expected_answer": "`setup.loads[1].id` in `examples/bracket_stress_test.ocs` is `load_gravity`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "load_gravity"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "load_gravity"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine instances[0].transform[2]. Partial evidence: the applicable schema title is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S01-Q040",
+      "expected_answer": "`instances[0].transform[2]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine instances[1].id. Partial evidence: the schema title is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S01-Q041",
+      "expected_answer": "`instances[1].id` in `examples/assembly_demo.oca` is `inst_sensor_01`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "inst_sensor_01"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to provide the .ocs schema path or repository VERSION value. Partial evidence: validate_examples loads SCHEMA_BY_SUFFIX[example_path.suffix] and checks header.version against VERSION, but the mapping entry and VERSION definition are not retrieved.",
+      "case_id": "S01-Q042",
+      "expected_answer": "The validator maps `.ocs` to `schemas/ocs.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "schemas/ocs.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/ocs.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Release Criteria say a draft release must have the repository validate successfully and schemas/examples be self-consistent. The README section is Validation, which describes repository validation and shows checks beginning with JSON syntax.",
+      "case_id": "S01-Q043",
+      "expected_answer": "Governance says a draft release should validate successfully and keep schemas and examples self-consistent; README says validation checks JSON syntax, schema compliance, and cross-file references.",
+      "missing_terms": [
+        [
+          "validates successfully"
+        ],
+        [
+          "schemas and examples are self-consistent"
+        ],
+        [
+          "cross-file references"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "validates successfully"
+        ],
+        [
+          "schemas and examples are self-consistent"
+        ],
+        [
+          "cross-file references"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to report the README description or schema title for .ocr. Partial evidence: the working draft lists .ocr as Simulation Result, but the retrieved snippets do not show the README table entry or OpenCAD Result Definition title.",
+      "case_id": "S01-Q044",
+      "expected_answer": ".ocr is OpenCAD Result in README, described as Result metadata mapped to external binary buffers. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ],
+        [
+          "Result metadata mapped to external binary buffers"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Result"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ],
+        [
+          "Result metadata mapped to external binary buffers"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine bufferViews[0].byteOffset. Partial evidence: the .ocr schema title is OpenCAD Result Definition (.ocr).",
+      "case_id": "S01-Q045",
+      "expected_answer": "`bufferViews[0].byteOffset` in `examples/bracket_stress_result.ocr` is `0`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine bufferViews[2].byteLength. Partial evidence: the .ocr schema title is OpenCAD Result Definition (.ocr).",
+      "case_id": "S01-Q046",
+      "expected_answer": "`bufferViews[2].byteLength` in `examples/bracket_stress_result.ocr` is `4000`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "4000"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "4000"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine bufferViews[2].buffer or the .ocr schema title. Partial evidence: the working draft lists .ocr as Simulation Result, but the retrieved snippets do not show the requested buffer value or result schema title.",
+      "case_id": "S01-Q047",
+      "expected_answer": "`bufferViews[2].buffer` in `examples/bracket_stress_result.ocr` is `0`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine header.generator. Partial evidence: the applicable schema title is OpenCAD Part Definition (.ocp), and the schema validator requires header fields generator and version.",
+      "case_id": "S01-Q048",
+      "expected_answer": "`header.generator` in `examples/bracket_demo.ocp` is `OpenCAD_Reference_Impl_v0.1`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "OpenCAD_Reference_Impl_v0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD_Reference_Impl_v0.1"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine inst_bracket_01 source_uri or target uct[1].type. Partial evidence: collect_relative_references inspects source_uri, source_sim, and uri, and UCT is described as the Unified Change Tree for parametric operations.",
+      "case_id": "S01-Q049",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[1].type` is `EXTRUDE`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "EXTRUDE"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "EXTRUDE"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine inst_bracket_01 source_uri or target uct[2].op_id. Partial evidence: collect_relative_references inspects source_uri, source_sim, and uri, and UCT is described as the Unified Change Tree for parametric operations.",
+      "case_id": "S01-Q050",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[2].op_id` is `op_003`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "op_003"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "op_003"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine bufferViews[0].byteLength. The retrieved contexts only provide the .ocr schema title: OpenCAD Result Definition (.ocr).",
+      "case_id": "S02-Q001",
+      "expected_answer": "`bufferViews[0].byteLength` in `examples/bracket_stress_result.ocr` is `12000`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "12000"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "12000"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine the inst_sensor_01 source URI or the target nets[0].nodes[0] value. The available evidence only shows that validation collects relative source_uri, source_sim, and uri references.",
+      "case_id": "S02-Q002",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `nets[0].nodes[0]` is `U1:4`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "U1:4"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "U1:4"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine constraints[1].target_a. The applicable schema title shown for .oca is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S02-Q003",
+      "expected_answer": "`constraints[1].target_a` in `examples/assembly_demo.oca` is `inst_bracket_01:face_5`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "inst_bracket_01:face_5"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01:face_5"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine instances[0].transform[13]. The applicable schema title shown for .oca is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S02-Q004",
+      "expected_answer": "`instances[0].transform[13]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine constraints[1].target_b. The applicable schema title shown for .oca is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S02-Q005",
+      "expected_answer": "`constraints[1].target_b` in `examples/assembly_demo.oca` is `inst_sensor_01:board_bottom`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "inst_sensor_01:board_bottom"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01:board_bottom"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Governance release criteria state that the repository validates successfully and that schemas and examples are self-consistent. README describes the checks under the Validation section, including JSON syntax, schema compliance, and cross-file references used by the example set.",
+      "case_id": "S02-Q006",
+      "expected_answer": "Governance says a draft release should validate successfully and keep schemas and examples self-consistent; README says validation checks JSON syntax, schema compliance, and cross-file references.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "validates successfully"
+        ],
+        [
+          "schemas and examples are self-consistent"
+        ],
+        [
+          "cross-file references"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine uct[2].op_id. The schema title shown for .ocp is OpenCAD Part Definition (.ocp).",
+      "case_id": "S02-Q007",
+      "expected_answer": "`uct[2].op_id` in `examples/bracket_demo.ocp` is `op_003`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "op_003"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "op_003"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine instances[0].transform[10]. The governing schema title shown for .oca is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S02-Q008",
+      "expected_answer": "`instances[0].transform[10]` in `examples/assembly_demo.oca` is `1`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "1"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to identify uct[2].op_id. The matching schema title shown for .ocp is OpenCAD Part Definition (.ocp).",
+      "case_id": "S02-Q009",
+      "expected_answer": "`uct[2].op_id` in `examples/bracket_demo.ocp` is `op_003`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "op_003"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "op_003"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Schemas and examples are licensed under MIT. The contribution rule is that contributions are licensed under the same license as the files being modified; CONTRIBUTING lists schemas, examples, scripts, workflows, and repository support files as MIT.",
+      "case_id": "S02-Q010",
+      "expected_answer": "`schemas/` and `examples/` are MIT-licensed, and changes to MIT-licensed areas are contributed under MIT.",
+      "missing_terms": [
+        [
+          "schemas/"
+        ],
+        [
+          "examples/"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/"
+        ],
+        [
+          "examples/"
+        ],
+        [
+          "MIT"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to identify nets[1].name. The matching schema title shown for .oce is OpenCAD Electrical Definition (.oce).",
+      "case_id": "S02-Q011",
+      "expected_answer": "`nets[1].name` in `examples/wiring_demo.oce` is `GND`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "GND"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "GND"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine the README-assigned domain name or the .ocs schema title. Partial evidence in the working draft lists .ocs as Simulation Setup.",
+      "case_id": "S02-Q012",
+      "expected_answer": ".ocs is OpenCAD Simulation Setup in README, described as Solver setup, meshes, loads, and boundary conditions. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "OpenCAD Simulation Setup"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ],
+        [
+          "Solver setup, meshes, loads, and boundary conditions"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Simulation Setup"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ],
+        [
+          "Solver setup, meshes, loads, and boundary conditions"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine uct[1].op_id. The governing schema title shown for .ocp is OpenCAD Part Definition (.ocp).",
+      "case_id": "S02-Q013",
+      "expected_answer": "`uct[1].op_id` in `examples/bracket_demo.ocp` is `op_002`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "op_002"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "op_002"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to identify the .oce schema path or exact VERSION string. The available evidence identifies .oce as OpenCAD Electrical and shows schemas require a numeric major.minor header version pattern, but it does not provide SCHEMA_BY_SUFFIX or VERSION.",
+      "case_id": "S02-Q014",
+      "expected_answer": "The validator maps `.oce` to `schemas/oce.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "schemas/oce.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/oce.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine what README calls .ocs or the title field in its schema. The retrieved contexts do not include the README .ocs row or the .ocs schema title.",
+      "case_id": "S02-Q015",
+      "expected_answer": ".ocs is OpenCAD Simulation Setup in README, described as Solver setup, meshes, loads, and boundary conditions. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "OpenCAD Simulation Setup"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ],
+        [
+          "Solver setup, meshes, loads, and boundary conditions"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Simulation Setup"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ],
+        [
+          "Solver setup, meshes, loads, and boundary conditions"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine the README-assigned domain name for .ocp. Partial evidence identifies .ocp as Part, and the schema title shown is OpenCAD Part Definition (.ocp).",
+      "case_id": "S02-Q016",
+      "expected_answer": ".ocp is OpenCAD Part in README, described as Geometry, metadata, and unified parametric history. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Part"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ],
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to identify bufferViews[0].name. The matching schema title shown for .ocr is OpenCAD Result Definition (.ocr).",
+      "case_id": "S02-Q017",
+      "expected_answer": "`bufferViews[0].name` in `examples/bracket_stress_result.ocr` is `Nodal_Coordinates`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "Nodal_Coordinates"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Nodal_Coordinates"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine setup.loads[0].target_entity or the .ocs schema title. Partial evidence only identifies .ocs as Simulation Setup and says the standard defines boundary conditions and loads.",
+      "case_id": "S02-Q018",
+      "expected_answer": "`setup.loads[0].target_entity` in `examples/bracket_stress_test.ocs` is `inst_bracket_01:face_top`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "inst_bracket_01:face_top"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01:face_top"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to trace metadata.source_sim or report load_gravity values. Partial evidence shows .ocr metadata requires source_sim and .ocs load entries include a target_entity described as an instance or face ID from the target file.",
+      "case_id": "S02-Q019",
+      "expected_answer": "The result source simulation is `./bracket_stress_test.ocs`. The simulation load `load_gravity` is type `GRAVITY` on `GLOBAL`.",
+      "missing_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "GLOBAL"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "load_gravity"
+        ],
+        [
+          "GRAVITY"
+        ],
+        [
+          "GLOBAL"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine nets[1].nodes[0]. The applicable schema title shown for .oce is OpenCAD Electrical Definition (.oce).",
+      "case_id": "S02-Q020",
+      "expected_answer": "`nets[1].nodes[0]` in `examples/wiring_demo.oce` is `U1:3`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "U1:3"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "U1:3"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine setup.loads[1].vector[1] or the .ocs schema title. Partial evidence only identifies .ocs as Simulation Setup.",
+      "case_id": "S02-Q021",
+      "expected_answer": "`setup.loads[1].vector[1]` in `examples/bracket_stress_test.ocs` is `-9.81`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "-9.81"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "-9.81"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine instances[0].transform[3]. The governing schema title shown for .oca is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S02-Q022",
+      "expected_answer": "`instances[0].transform[3]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine instances[0].transform[8]. The schema title to use is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S02-Q023",
+      "expected_answer": "`instances[0].transform[8]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "The retrieved contexts support schemas/ocp.schema.json as the .ocp schema path. The exact expected version cannot be determined because the VERSION value is not included; the validator checks header.version against VERSION.",
+      "case_id": "S02-Q024",
+      "expected_answer": "The validator maps `.ocp` to `schemas/ocp.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/ocp.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to connect Von_Mises_Stress field data to concrete bufferViews or buffers values. Partial evidence says compliant parsers use buffers and bufferViews to reconstruct mathematical data arrays, and buffers define a URI plus total byte length for external raw binary files.",
+      "case_id": "S02-Q025",
+      "expected_answer": "Field `Von_Mises_Stress` uses bufferView index `2`, named `Von_Mises_Stress` with `FLOAT32` `SCALAR` data. That view points to buffer URI `./bracket_results_data.bin`.",
+      "missing_terms": [
+        [
+          "2"
+        ],
+        [
+          "FLOAT32"
+        ],
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Von_Mises_Stress"
+        ],
+        [
+          "2"
+        ],
+        [
+          "Von_Mises_Stress"
+        ],
+        [
+          "FLOAT32"
+        ],
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine the README-listed name for .oca. The schema title shown for .oca is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S02-Q026",
+      "expected_answer": ".oca is OpenCAD Assembly in README, described as Instance references, transforms, constraints, and BOM logic. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "Instance references, transforms, constraints, and BOM logic"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Assembly"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ],
+        [
+          "Instance references, transforms, constraints, and BOM logic"
+        ]
+      ]
+    },
+    {
+      "answer": "The current maintainer is Nathan Sharp. The Governance section that points readers to MAINTAINERS.md is Maintainer Authority.",
+      "case_id": "S02-Q027",
+      "expected_answer": "MAINTAINERS lists Nathan Sharp; GOVERNANCE points to MAINTAINERS.md for the current maintainer list.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "Nathan Sharp"
+        ],
+        [
+          "MAINTAINERS.md"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine inst_bracket_01 source_uri or uct[1].params.direction[1] from its source. Partial evidence only describes source_uri fields as URIs to referenced files.",
+      "case_id": "S02-Q028",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[1].params.direction[1]` is `0`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "0"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine inst_bracket_01 source_uri or the referenced file uct[0].op_id. Partial evidence says .oca files link .ocp and .oce files by URIs and the validator collects source_uri references.",
+      "case_id": "S02-Q029",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[0].op_id` is `op_001`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "op_001"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "op_001"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine inst_bracket_01 source_uri or uct[2].op_id from its source. The retrieved contexts do not include the assembly instance data or referenced .ocp UCT values.",
+      "case_id": "S02-Q030",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[2].op_id` is `op_003`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "op_003"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "op_003"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to provide source_sim, load_gravity type, or its target entity. Partial evidence identifies .ocs as the simulation setup format and says setup contains boundary_conditions and loads.",
+      "case_id": "S02-Q031",
+      "expected_answer": "The result source simulation is `./bracket_stress_test.ocs`. The simulation load `load_gravity` is type `GRAVITY` on `GLOBAL`.",
+      "missing_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "GLOBAL"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "load_gravity"
+        ],
+        [
+          "GRAVITY"
+        ],
+        [
+          "GLOBAL"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine buffers[0].uri. The contexts identify .ocr as Simulation Result and include the beginning of the Simulation Result schema, but the exact schema title field is not present in the retrieved snippet.",
+      "case_id": "S02-Q032",
+      "expected_answer": "`buffers[0].uri` in `examples/bracket_stress_result.ocr` is `./bracket_results_data.bin`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to identify instances[1].transform[5]. The matching schema title shown for .oca is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S02-Q033",
+      "expected_answer": "`instances[1].transform[5]` in `examples/assembly_demo.oca` is `1`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "1"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to resolve inst_sensor_01 or read nets[1].nodes[0] from the referenced example. Partial evidence only says .oce contains schematic logic, netlists, and pin definitions, while .oca contains references.",
+      "case_id": "S02-Q034",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `nets[1].nodes[0]` is `U1:3`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "U1:3"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "U1:3"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine instances[0].transform[5]. The schema title shown for .oca is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S02-Q035",
+      "expected_answer": "`instances[0].transform[5]` in `examples/assembly_demo.oca` is `1`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "1"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine what inst_sensor_01 points to or metadata.board_name in the referenced file. Partial evidence says an assembly instance source_uri is a relative or absolute path to a .ocp or .oce file.",
+      "case_id": "S02-Q036",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `metadata.board_name` is `Main Sensor PCB`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "Main Sensor PCB"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "Main Sensor PCB"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine the .oca schema path or repository VERSION value. The validator loads schemas through SCHEMA_BY_SUFFIX and checks each example header.version against VERSION, but neither the .oca mapping nor VERSION value is included.",
+      "case_id": "S02-Q037",
+      "expected_answer": "The validator maps `.oca` to `schemas/oca.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "schemas/oca.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/oca.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to resolve inst_bracket_01 or read uct[1].params.direction[0]. Partial evidence only identifies .oca as containing references and .ocp as containing the UCT.",
+      "case_id": "S02-Q038",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[1].params.direction[0]` is `0`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "0"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine uct[1].type. The applicable schema title shown for .ocp is OpenCAD Part Definition (.ocp).",
+      "case_id": "S02-Q039",
+      "expected_answer": "`uct[1].type` in `examples/bracket_demo.ocp` is `EXTRUDE`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "EXTRUDE"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "EXTRUDE"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine the README-assigned domain name for .oca. Partial evidence identifies .oca as Assembly, and the schema title shown is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S02-Q040",
+      "expected_answer": ".oca is OpenCAD Assembly in README, described as Instance references, transforms, constraints, and BOM logic. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "Instance references, transforms, constraints, and BOM logic"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Assembly"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ],
+        [
+          "Instance references, transforms, constraints, and BOM logic"
+        ]
+      ]
+    },
+    {
+      "answer": "specification/ files are licensed under CC BY-SA 4.0. The repeated contribution rule is that contributions are licensed under the same license as the files being modified; CONTRIBUTING lists specification files as CC BY-SA 4.0.",
+      "case_id": "S02-Q041",
+      "expected_answer": "Files under `specification/` are CC BY-SA 4.0, and CONTRIBUTING says changes to `specification/` use CC BY-SA 4.0.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "specification/"
+        ],
+        [
+          "CC BY-SA 4.0"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to identify nets[1].nodes[1]. The matching schema title shown for .oce is OpenCAD Electrical Definition (.oce).",
+      "case_id": "S02-Q042",
+      "expected_answer": "`nets[1].nodes[1]` in `examples/wiring_demo.oce` is `U1:5`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "U1:5"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "U1:5"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine uct[1].op_id. The schema title for .ocp shown in the contexts is OpenCAD Part Definition (.ocp).",
+      "case_id": "S02-Q043",
+      "expected_answer": "`uct[1].op_id` in `examples/bracket_demo.ocp` is `op_002`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "op_002"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "op_002"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine uct[0].params.primitives[0].center[0]. The governing schema title shown for .ocp is OpenCAD Part Definition (.ocp).",
+      "case_id": "S02-Q044",
+      "expected_answer": "`uct[0].params.primitives[0].center[0]` in `examples/bracket_demo.ocp` is `0`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine what file inst_sensor_01 references or the referenced file metadata.board_name. Partial evidence only shows validation collects relative source_uri references.",
+      "case_id": "S02-Q045",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `metadata.board_name` is `Main Sensor PCB`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "Main Sensor PCB"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "Main Sensor PCB"
+        ]
+      ]
+    },
+    {
+      "answer": "README lists three validation concerns: JSON syntax, schema compliance, and cross-file references used by the example set. The script named for running those checks is scripts/validate_repo.py.",
+      "case_id": "S02-Q046",
+      "expected_answer": "README lists JSON syntax, schema compliance, and cross-file references; `scripts/validate_repo.py` implements schema validation and reference checks.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "JSON syntax"
+        ],
+        [
+          "schema compliance"
+        ],
+        [
+          "cross-file references"
+        ],
+        [
+          "scripts/validate_repo.py"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine which assembly file bracket_stress_test.ocs targets or what that assembly calls itself. Partial evidence only describes .oca as an assembly file that links .ocp and .oce files, with schema title OpenCAD Assembly Definition (.oca).",
+      "case_id": "S02-Q047",
+      "expected_answer": "`examples/bracket_stress_test.ocs` targets `./assembly_demo.oca`. The target assembly name in `examples/assembly_demo.oca` is `Bracket Sensor Assembly`.",
+      "missing_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "Bracket Sensor Assembly"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "Bracket Sensor Assembly"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine instances[0].transform[7]. The schema title shown for .oca is OpenCAD Assembly Definition (.oca).",
+      "case_id": "S02-Q048",
+      "expected_answer": "`instances[0].transform[7]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine instances[0].transform[13] or the .oca schema title. The retrieved contexts mention assembly validation and schema consistency but do not include the example value or the .oca schema title.",
+      "case_id": "S02-Q049",
+      "expected_answer": "`instances[0].transform[13]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine nets[2].nodes[1]. The schema title to use for .oce is OpenCAD Electrical Definition (.oce).",
+      "case_id": "S02-Q050",
+      "expected_answer": "`nets[2].nodes[1]` in `examples/wiring_demo.oce` is `R1:2`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "R1:2"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "R1:2"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. No retrieved_context shows examples/bracket_stress_result.ocr metadata.source_sim or an .ocr schema title; the available schema snippets are for .ocp and .oce.",
+      "case_id": "S03-Q001",
+      "expected_answer": "`metadata.source_sim` in `examples/bracket_stress_result.ocr` is `./bracket_stress_test.ocs`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient for the README-assigned .ocr domain. Partial evidence: specification/Working Draft.typ gives the .ocr schema title as OpenCAD Result Definition (.ocr).",
+      "case_id": "S03-Q002",
+      "expected_answer": ".ocr is OpenCAD Result in README, described as Result metadata mapped to external binary buffers. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "Result metadata mapped to external binary buffers"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Result"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ],
+        [
+          "Result metadata mapped to external binary buffers"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine the source URI or assembly name. Partial evidence: the .oca overview says assembly files link .ocp and .oce files via relative or absolute URIs.",
+      "case_id": "S03-Q003",
+      "expected_answer": "`examples/bracket_stress_test.ocs` targets `./assembly_demo.oca`. The target assembly name in `examples/assembly_demo.oca` is `Bracket Sensor Assembly`.",
+      "missing_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "Bracket Sensor Assembly"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "Bracket Sensor Assembly"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to resolve inst_bracket_01 or read metadata.name from its referenced example. Partial evidence: .oca files contain instances and link .ocp/.oce files via URIs.",
+      "case_id": "S03-Q004",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `metadata.name` is `Mounting Bracket L-Type`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "Mounting Bracket L-Type"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "Mounting Bracket L-Type"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for the recorded source_sim value. Partial evidence: schemas/ocr.schema.json defines source_sim as the URI to the .ocs file that generated the result, and examples/bracket_stress_test.ocs shows load_gravity has type GRAVITY.",
+      "case_id": "S03-Q005",
+      "expected_answer": "The result source simulation is `./bracket_stress_test.ocs`. The simulation load `load_gravity` is type `GRAVITY` on `GLOBAL`.",
+      "missing_terms": [
+        [
+          "GLOBAL"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "load_gravity"
+        ],
+        [
+          "GRAVITY"
+        ],
+        [
+          "GLOBAL"
+        ]
+      ]
+    },
+    {
+      "answer": "GOVERNANCE.md says, under Decision Process, that semantic or schema changes should begin with an RFC issue. CONTRIBUTING.md section Schema Or Semantic Changes gives examples: new operation types, renamed fields, schema constraint changes, and interoperability behavior changes.",
+      "case_id": "S03-Q006",
+      "expected_answer": "GOVERNANCE says semantic or schema changes should begin with an RFC issue; CONTRIBUTING lists schema constraint changes and interoperability behavior changes as examples.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "RFC issue"
+        ],
+        [
+          "schema constraint changes"
+        ],
+        [
+          "interoperability behavior changes"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to resolve inst_bracket_01 or read metadata.material from the referenced example. Partial evidence: retrieved contexts say .oca contains hierarchical references and .ocp contains material properties.",
+      "case_id": "S03-Q007",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `metadata.material` is `Aluminum 6061-T6`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "Aluminum 6061-T6"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "Aluminum 6061-T6"
+        ]
+      ]
+    },
+    {
+      "answer": "The retrieved contexts identify .ocp as Part, and schemas/ocp.schema.json gives the schema title OpenCAD Part Definition (.ocp). The specific README row is not present in the retrieved contexts.",
+      "case_id": "S03-Q008",
+      "expected_answer": ".ocp is OpenCAD Part in README, described as Geometry, metadata, and unified parametric history. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Part"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ],
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ]
+    },
+    {
+      "answer": "specification/ files are licensed under CC BY-SA 4.0. CONTRIBUTING.md repeats the rule in Licensing And IP: contributions are licensed under the same license as the files modified, with specification/ files listed as CC BY-SA 4.0.",
+      "case_id": "S03-Q009",
+      "expected_answer": "Files under `specification/` are CC BY-SA 4.0, and CONTRIBUTING says changes to `specification/` use CC BY-SA 4.0.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "specification/"
+        ],
+        [
+          "CC BY-SA 4.0"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/assembly_demo.oca instances[0].transform[2]. Partial evidence: schemas/oca.schema.json gives the covering schema title as OpenCAD Assembly Definition (.oca).",
+      "case_id": "S03-Q010",
+      "expected_answer": "`instances[0].transform[2]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for bufferViews[1].name. Partial evidence: the matching .ocr schema title is OpenCAD Result Definition (.ocr).",
+      "case_id": "S03-Q011",
+      "expected_answer": "`bufferViews[1].name` in `examples/bracket_stress_result.ocr` is `Element_Connectivity`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "Element_Connectivity"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Element_Connectivity"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/bracket_demo.ocp uct[1].params.direction[1]. Partial evidence: schemas/ocp.schema.json gives the matching schema title as OpenCAD Part Definition (.ocp).",
+      "case_id": "S03-Q012",
+      "expected_answer": "`uct[1].params.direction[1]` in `examples/bracket_demo.ocp` is `0`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/wiring_demo.oce components[1].ref_des. Partial evidence: schemas/oce.schema.json gives the schema title OpenCAD Electrical Definition (.oce).",
+      "case_id": "S03-Q013",
+      "expected_answer": "`components[1].ref_des` in `examples/wiring_demo.oce` is `R1`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "R1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "R1"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. The retrieved README chunk does not describe .ocr, and the retrieved schema snippets do not include the .ocr title.",
+      "case_id": "S03-Q014",
+      "expected_answer": ".ocr is OpenCAD Result in README, described as Result metadata mapped to external binary buffers. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "OpenCAD Result"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ],
+        [
+          "Result metadata mapped to external binary buffers"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Result"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ],
+        [
+          "Result metadata mapped to external binary buffers"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for setup.boundary_conditions[0].target_entity. Partial evidence: schemas/ocs.schema.json gives the schema title OpenCAD Simulation Definition (.ocs).",
+      "case_id": "S03-Q015",
+      "expected_answer": "`setup.boundary_conditions[0].target_entity` in `examples/bracket_stress_test.ocs` is `inst_bracket_01:face_back`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "inst_bracket_01:face_back"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01:face_back"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to identify the file referenced by inst_bracket_01 or the referenced file's uct[2].params.edges[0]. Partial evidence: the validator collects relative source_uri references.",
+      "case_id": "S03-Q016",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[2].params.edges[0]` is `idx_0`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "idx_0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "idx_0"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/wiring_demo.oce nets[2].name. Partial evidence: schemas/oce.schema.json gives the schema title OpenCAD Electrical Definition (.oce).",
+      "case_id": "S03-Q017",
+      "expected_answer": "`nets[2].name` in `examples/wiring_demo.oce` is `RESET`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "RESET"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "RESET"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine the declared source URI or the target uct[0].params.primitives[0].height. Partial evidence: the validator treats source_uri as a relative reference field, and schemas/oca.schema.json defines source_uri as a path to .ocp or .oce.",
+      "case_id": "S03-Q018",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[0].params.primitives[0].height` is `50`.",
+      "missing_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "50"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "50"
+        ]
+      ]
+    },
+    {
+      "answer": "specification/ files are licensed under CC BY-SA 4.0. CONTRIBUTING.md states contributions use the same license as the files modified and lists specification/ files as CC BY-SA 4.0.",
+      "case_id": "S03-Q019",
+      "expected_answer": "Files under `specification/` are CC BY-SA 4.0, and CONTRIBUTING says changes to `specification/` use CC BY-SA 4.0.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "specification/"
+        ],
+        [
+          "CC BY-SA 4.0"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for the README description. Partial evidence: retrieved contexts list .ocp as Part and schemas/ocp.schema.json gives the schema title OpenCAD Part Definition (.ocp).",
+      "case_id": "S03-Q020",
+      "expected_answer": ".ocp is OpenCAD Part in README, described as Geometry, metadata, and unified parametric history. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Part"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ],
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine inst_sensor_01's source URI or components[0].ref_des in the referenced file. Partial evidence: the .oca overview says .oca files link .ocp and .oce files via URIs.",
+      "case_id": "S03-Q021",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `components[0].ref_des` is `U1`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "U1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "U1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine inst_bracket_01's source URI or uct[2].params.radius in the referenced file. Partial evidence: the .oca overview says .oca files link .ocp and .oce files via URIs.",
+      "case_id": "S03-Q022",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[2].params.radius` is `2.5`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "2.5"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "2.5"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/bracket_stress_result.ocr header.version and for the .ocr schema title. Partial evidence: the working draft lists .ocr as Simulation Result.",
+      "case_id": "S03-Q023",
+      "expected_answer": "`header.version` in `examples/bracket_stress_result.ocr` is `0.1`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "0.1"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0.1"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for the .ocr schema path and literal VERSION value. Partial evidence: validate_examples loads schemas through SCHEMA_BY_SUFFIX and checks header.version against VERSION.",
+      "case_id": "S03-Q024",
+      "expected_answer": "The validator maps `.ocr` to `schemas/ocr.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "schemas/ocr.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/ocr.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/wiring_demo.oce nets[2].name. Partial evidence: schemas/oce.schema.json gives the schema title OpenCAD Electrical Definition (.oce).",
+      "case_id": "S03-Q025",
+      "expected_answer": "`nets[2].name` in `examples/wiring_demo.oce` is `RESET`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "RESET"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "RESET"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/bracket_demo.ocp metadata.name. Partial evidence: schemas/ocp.schema.json gives the schema title OpenCAD Part Definition (.ocp).",
+      "case_id": "S03-Q026",
+      "expected_answer": "`metadata.name` in `examples/bracket_demo.ocp` is `Mounting Bracket L-Type`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "Mounting Bracket L-Type"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Mounting Bracket L-Type"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for setup.boundary_conditions[0].id and for the .ocs schema title. Partial evidence: the working draft lists .ocs as Simulation Setup.",
+      "case_id": "S03-Q027",
+      "expected_answer": "`setup.boundary_conditions[0].id` in `examples/bracket_stress_test.ocs` is `bc_fix_01`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "bc_fix_01"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "bc_fix_01"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/bracket_stress_result.ocr mesh.elements and the governing .ocr schema title. Partial evidence: the working draft lists .ocr as Simulation Result.",
+      "case_id": "S03-Q028",
+      "expected_answer": "`mesh.elements` in `examples/bracket_stress_result.ocr` is `1`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "1"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "1"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/assembly_demo.oca instances[0].transform[4]. Partial evidence: schemas/oca.schema.json gives the schema title OpenCAD Assembly Definition (.oca).",
+      "case_id": "S03-Q029",
+      "expected_answer": "`instances[0].transform[4]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to identify the simulation cited by examples/bracket_stress_result.ocr or the load_force_01 load type. Partial evidence: retrieved schema snippets describe .ocs as containing FEA/CFD setup, loads, and boundary conditions.",
+      "case_id": "S03-Q030",
+      "expected_answer": "The result source simulation is `./bracket_stress_test.ocs`. The simulation load `load_force_01` is type `FORCE` on `inst_bracket_01:face_top`.",
+      "missing_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "inst_bracket_01:face_top"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "load_force_01"
+        ],
+        [
+          "FORCE"
+        ],
+        [
+          "inst_bracket_01:face_top"
+        ]
+      ]
+    },
+    {
+      "answer": "Schemas and examples are licensed under MIT. CONTRIBUTING.md Licensing And IP says contributions are licensed under the same license as the files modified and lists schemas/, examples/, scripts, workflows, and repository support files as MIT.",
+      "case_id": "S03-Q031",
+      "expected_answer": "`schemas/` and `examples/` are MIT-licensed, and changes to MIT-licensed areas are contributed under MIT.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "schemas/"
+        ],
+        [
+          "examples/"
+        ],
+        [
+          "MIT"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/assembly_demo.oca instances[1].transform[8]. Partial evidence: schemas/oca.schema.json gives the matching schema title as OpenCAD Assembly Definition (.oca).",
+      "case_id": "S03-Q032",
+      "expected_answer": "`instances[1].transform[8]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for setup.loads[0].vector[1]. Partial evidence: specification/Working Draft.typ gives the governing schema title as OpenCAD Simulation Definition (.ocs).",
+      "case_id": "S03-Q033",
+      "expected_answer": "`setup.loads[0].vector[1]` in `examples/bracket_stress_test.ocs` is `-1`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "-1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "-1"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "The documented dependency installation command is pip install -r requirements.txt. Insufficient retrieved context for where CI installs the same requirements; no CI workflow snippet is present.",
+      "case_id": "S03-Q034",
+      "expected_answer": "The documented command is `pip install -r requirements.txt`; the validation workflow installs `pip install -r requirements.txt` after upgrading pip.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "pip install -r requirements.txt"
+        ],
+        [
+          "requirements.txt"
+        ]
+      ]
+    },
+    {
+      "answer": "examples/assembly_demo.oca shows inst_bracket_01 has source_uri ./bracket_demo.ocp. Insufficient retrieved context for the referenced artifact's uct[2].op_id.",
+      "case_id": "S03-Q035",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[2].op_id` is `op_003`.",
+      "missing_terms": [
+        [
+          "op_003"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "op_003"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/wiring_demo.oce nets[2].nodes[0]. Partial evidence: schemas/oce.schema.json gives the matching schema title as OpenCAD Electrical Definition (.oce).",
+      "case_id": "S03-Q036",
+      "expected_answer": "`nets[2].nodes[0]` in `examples/wiring_demo.oce` is `U1:29`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "U1:29"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "U1:29"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/wiring_demo.oce nets[2].nodes[1]. Partial evidence: schemas/oce.schema.json gives the schema title OpenCAD Electrical Definition (.oce).",
+      "case_id": "S03-Q037",
+      "expected_answer": "`nets[2].nodes[1]` in `examples/wiring_demo.oce` is `R1:2`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "R1:2"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "R1:2"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/assembly_demo.oca instances[1].transform[4]. Partial evidence: schemas/oca.schema.json gives the schema title OpenCAD Assembly Definition (.oca).",
+      "case_id": "S03-Q038",
+      "expected_answer": "`instances[1].transform[4]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/bracket_stress_test.ocs setup.loads[0].type and the .ocs schema title. Partial evidence: the retrieved working-draft context mentions boundary conditions and loads for CAE analysis.",
+      "case_id": "S03-Q039",
+      "expected_answer": "`setup.loads[0].type` in `examples/bracket_stress_test.ocs` is `FORCE`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "FORCE"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "FORCE"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for the .oce schema path and repository VERSION value. Partial evidence: validate_examples loads schemas through SCHEMA_BY_SUFFIX and requires header.version to equal VERSION.",
+      "case_id": "S03-Q040",
+      "expected_answer": "The validator maps `.oce` to `schemas/oce.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "schemas/oce.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/oce.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/wiring_demo.oce components[1].footprint. Partial evidence: schemas/oce.schema.json gives the governing schema title as OpenCAD Electrical Definition (.oce).",
+      "case_id": "S03-Q041",
+      "expected_answer": "`components[1].footprint` in `examples/wiring_demo.oce` is `0603`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "0603"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0603"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. The retrieved contexts do not include the README-listed name for .ocs or the .ocs schema title.",
+      "case_id": "S03-Q042",
+      "expected_answer": ".ocs is OpenCAD Simulation Setup in README, described as Solver setup, meshes, loads, and boundary conditions. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "OpenCAD Simulation Setup"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ],
+        [
+          "Solver setup, meshes, loads, and boundary conditions"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Simulation Setup"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ],
+        [
+          "Solver setup, meshes, loads, and boundary conditions"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to fully identify the Von_Mises_Stress bufferView and raw buffer. Partial evidence: examples/bracket_stress_result.ocr shows a bufferView fragment with buffer 0, byteOffset 20000, byteLength 4000, and componentType FLOAT32, but the retrieved text cuts off before confirming the name or raw buffer URI.",
+      "case_id": "S03-Q043",
+      "expected_answer": "Field `Von_Mises_Stress` uses bufferView index `2`, named `Von_Mises_Stress` with `FLOAT32` `SCALAR` data. That view points to buffer URI `./bracket_results_data.bin`.",
+      "missing_terms": [
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Von_Mises_Stress"
+        ],
+        [
+          "2"
+        ],
+        [
+          "Von_Mises_Stress"
+        ],
+        [
+          "FLOAT32"
+        ],
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/bracket_stress_test.ocs setup.loads[0].id and the .ocs schema title. Partial evidence: the retrieved working-draft context mentions boundary conditions and loads for CAE analysis.",
+      "case_id": "S03-Q044",
+      "expected_answer": "`setup.loads[0].id` in `examples/bracket_stress_test.ocs` is `load_force_01`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "load_force_01"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "load_force_01"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/wiring_demo.oce nets[0].nodes[2]. Partial evidence: schemas/oce.schema.json gives the schema title OpenCAD Electrical Definition (.oce).",
+      "case_id": "S03-Q045",
+      "expected_answer": "`nets[0].nodes[2]` in `examples/wiring_demo.oce` is `R1:1`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "R1:1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "R1:1"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for the .ocr schema path and repository VERSION value. Partial evidence: validate_examples loads schemas through SCHEMA_BY_SUFFIX and checks header.version against VERSION; validate_schemas requires header fields generator and version.",
+      "case_id": "S03-Q046",
+      "expected_answer": "The validator maps `.ocr` to `schemas/ocr.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "schemas/ocr.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/ocr.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine what inst_bracket_01 points to or uct[0].params.plane in the referenced source. Partial evidence: schemas/oca.schema.json defines source_uri as a path to a .ocp or .oce file.",
+      "case_id": "S03-Q047",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[0].params.plane` is `XY`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "XY"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "XY"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/bracket_stress_test.ocs metadata.name and the .ocs schema title. Partial evidence: the working draft lists .ocs as Simulation Setup.",
+      "case_id": "S03-Q048",
+      "expected_answer": "`metadata.name` in `examples/bracket_stress_test.ocs` is `Bracket Max Load Test`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "Bracket Max Load Test"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Bracket Max Load Test"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/assembly_demo.oca instances[1].transform[4]. Partial evidence: schemas/oca.schema.json gives the schema title OpenCAD Assembly Definition (.oca).",
+      "case_id": "S03-Q049",
+      "expected_answer": "`instances[1].transform[4]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for examples/wiring_demo.oce components[2].part_number. Partial evidence: schemas/oce.schema.json gives the schema title OpenCAD Electrical Definition (.oce).",
+      "case_id": "S03-Q050",
+      "expected_answer": "`components[2].part_number` in `examples/wiring_demo.oce` is `CAP-100nF`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "CAP-100nF"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "CAP-100nF"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to identify the `Von_Mises_Stress` record values. Partial evidence: `fields[].data` is an index of the bufferView containing result values (`schemas/ocr.schema.json:chunk-21`/`chunk-22`), `bufferViews` define `componentType`/`type` (`specification/Working Draft.typ:chunk-65`), and `buffers` define URI/byte length (`specification/Working Draft.typ:chunk-64`); no actual field, bufferView name, componentType, or buffer URI is provided.",
+      "case_id": "S04-Q001",
+      "expected_answer": "Field `Von_Mises_Stress` uses bufferView index `2`, named `Von_Mises_Stress` with `FLOAT32` `SCALAR` data. That view points to buffer URI `./bracket_results_data.bin`.",
+      "missing_terms": [
+        [
+          "FLOAT32"
+        ],
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Von_Mises_Stress"
+        ],
+        [
+          "2"
+        ],
+        [
+          "Von_Mises_Stress"
+        ],
+        [
+          "FLOAT32"
+        ],
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ]
+      ]
+    },
+    {
+      "answer": "`README.md:chunk-8` maps `.oce` to `OpenCAD Electrical`; `schemas/oce.schema.json:chunk-1` gives the schema title `OpenCAD Electrical Definition (.oce)`.",
+      "case_id": "S04-Q002",
+      "expected_answer": ".oce is OpenCAD Electrical in README, described as Schematics, netlists, components, and electrical connectivity. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "Schematics, netlists, components, and electrical connectivity"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Electrical"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ],
+        [
+          "Schematics, netlists, components, and electrical connectivity"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. Partial evidence: assembly files link `.ocp` and `.oce` files via URIs (`specification/Working Draft.typ:chunk-52`) and the validator collects `source_uri` values (`scripts/validate_repo.py:collect_relative_references`), but no `inst_sensor_01` source URI or referenced `nets[0].name` is present.",
+      "case_id": "S04-Q003",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `nets[0].name` is `VCC`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "VCC"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "VCC"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `instances[1].transform[2]`. Partial evidence: `schemas/oca.schema.json:chunk-1` gives the applicable schema title as `OpenCAD Assembly Definition (.oca)`.",
+      "case_id": "S04-Q004",
+      "expected_answer": "`instances[1].transform[2]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. Partial evidence: `.oca` contains hierarchical references and the assembly schema title is `OpenCAD Assembly Definition (.oca)`, but no `inst_sensor_01` source or referenced `components[0].ref_des` appears.",
+      "case_id": "S04-Q005",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `components[0].ref_des` is `U1`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "U1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "U1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. Partial evidence: `.oca` links `.ocp`/`.oce` files by URI and `source_uri` references are collected by the validator, but no `inst_bracket_01` source URI or referenced `uct[2].params.edges[0]` appears.",
+      "case_id": "S04-Q006",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[2].params.edges[0]` is `idx_0`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "idx_0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "idx_0"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `instances[0].transform[0]`. Partial evidence: `schemas/oca.schema.json:chunk-1` gives the applicable schema title as `OpenCAD Assembly Definition (.oca)`.",
+      "case_id": "S04-Q007",
+      "expected_answer": "`instances[0].transform[0]` in `examples/assembly_demo.oca` is `1`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "1"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "The retrieved context identifies the `.ocp` schema file as `schemas/ocp.schema.json` (`schemas/ocp.schema.json:chunk-1`). The header version that should pass is not fully established; partial evidence only shows a repository changelog entry `0.1` (`CHANGELOG.md:chunk-1`), not the validator `VERSION` value.",
+      "case_id": "S04-Q008",
+      "expected_answer": "The validator maps `.ocp` to `schemas/ocp.schema.json` and expects header version `0.1`.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "schemas/ocp.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `metadata.material`. Partial evidence: `schemas/ocp.schema.json:chunk-1` gives the applicable schema title as `OpenCAD Part Definition (.ocp)`.",
+      "case_id": "S04-Q009",
+      "expected_answer": "`metadata.material` in `examples/bracket_demo.ocp` is `Aluminum 6061-T6`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "Aluminum 6061-T6"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Aluminum 6061-T6"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `uct[1].params.direction[1]`. Partial evidence: `schemas/ocp.schema.json:chunk-1` gives the applicable schema title as `OpenCAD Part Definition (.ocp)`.",
+      "case_id": "S04-Q010",
+      "expected_answer": "`uct[1].params.direction[1]` in `examples/bracket_demo.ocp` is `0`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. Partial evidence: `schemas/oca.schema.json:chunk-8` defines `source_uri` as a path to a `.ocp` or `.oce` file and `scripts/validate_repo.py` collects `source_uri` values, but no `inst_bracket_01` source URI or target UCT value is retrieved.",
+      "case_id": "S04-Q011",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[0].params.primitives[0].center[0]` is `0`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "0"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `metadata.name`. Partial evidence: `specification/Working Draft.typ:chunk-112` gives the applicable schema title as `OpenCAD Simulation Definition (.ocs)`.",
+      "case_id": "S04-Q012",
+      "expected_answer": "`metadata.name` in `examples/bracket_stress_test.ocs` is `Bracket Max Load Test`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "Bracket Max Load Test"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Bracket Max Load Test"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `metadata.assembly_name`. Partial evidence: `schemas/oca.schema.json:chunk-1` gives the governing schema title `OpenCAD Assembly Definition (.oca)`.",
+      "case_id": "S04-Q013",
+      "expected_answer": "`metadata.assembly_name` in `examples/assembly_demo.oca` is `Bracket Sensor Assembly`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "Bracket Sensor Assembly"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Bracket Sensor Assembly"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine `bufferViews[1].name` or the exact `.ocr` schema title. Partial evidence: `specification/Working Draft.typ:chunk-20` identifies `.ocr` as Simulation Result, but no bufferView record or schema title is included.",
+      "case_id": "S04-Q014",
+      "expected_answer": "`bufferViews[1].name` in `examples/bracket_stress_result.ocr` is `Element_Connectivity`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "Element_Connectivity"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Element_Connectivity"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `instances[0].transform[8]`. Partial evidence: `schemas/oca.schema.json:chunk-1` gives the schema title `OpenCAD Assembly Definition (.oca)`.",
+      "case_id": "S04-Q015",
+      "expected_answer": "`instances[0].transform[8]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `mesh.nodes`. Partial evidence: `schemas/ocr.schema.json:chunk-1` gives the schema title `OpenCAD Result Definition (.ocr)`.",
+      "case_id": "S04-Q016",
+      "expected_answer": "`mesh.nodes` in `examples/bracket_stress_result.ocr` is `0`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Partial evidence identifies `.ocs` as `Simulation Setup` and as `The Simulation Setup File (.ocs)` (`specification/Working Draft.typ:chunk-20`/`chunk-56`). Insufficient retrieved context for the schema title; no `.ocs` schema title chunk is present.",
+      "case_id": "S04-Q017",
+      "expected_answer": ".ocs is OpenCAD Simulation Setup in README, described as Solver setup, meshes, loads, and boundary conditions. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "OpenCAD Simulation Setup"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ],
+        [
+          "Solver setup, meshes, loads, and boundary conditions"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Simulation Setup"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ],
+        [
+          "Solver setup, meshes, loads, and boundary conditions"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. Partial evidence: `validate_examples` loads `SCHEMA_BY_SUFFIX[example_path.suffix]` and compares header version to `VERSION`, but the retrieved snippets do not include the `.oca` suffix mapping or the `VERSION` value.",
+      "case_id": "S04-Q018",
+      "expected_answer": "The validator maps `.oca` to `schemas/oca.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "schemas/oca.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/oca.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for the exact contributor validation command and the GitHub workflow step. Partial evidence: `CONTRIBUTING.md:chunk-12` says Validation Requirements include `pip install -r requirements.txt` and begins a `python s...` command; no GitHub workflow step is retrieved.",
+      "case_id": "S04-Q019",
+      "expected_answer": "Contributors are told to run `python scripts/validate_repo.py`; the GitHub workflow also runs `python scripts/validate_repo.py` in its Validate repository step.",
+      "missing_terms": [
+        [
+          "python scripts/validate_repo.py"
+        ],
+        [
+          "Validate repository"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "python scripts/validate_repo.py"
+        ],
+        [
+          "Validate repository"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `instances[0].transform[11]`. Partial evidence: `schemas/oca.schema.json:chunk-1` gives the schema title `OpenCAD Assembly Definition (.oca)`.",
+      "case_id": "S04-Q020",
+      "expected_answer": "`instances[0].transform[11]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `instances[1].transform[14]`. Partial evidence: `schemas/oca.schema.json:chunk-1` gives the schema title `OpenCAD Assembly Definition (.oca)`.",
+      "case_id": "S04-Q021",
+      "expected_answer": "`instances[1].transform[14]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `bufferViews[2].byteLength` and the exact schema title. Partial evidence: `specification/Working Draft.typ:chunk-133` identifies a Simulation Result Schema section for `.ocr`, but no bufferView record or complete title is present.",
+      "case_id": "S04-Q022",
+      "expected_answer": "`bufferViews[2].byteLength` in `examples/bracket_stress_result.ocr` is `4000`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "4000"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "4000"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `uct[2].params.radius`. Partial evidence: `schemas/ocp.schema.json:chunk-1` gives the schema title `OpenCAD Part Definition (.ocp)`.",
+      "case_id": "S04-Q023",
+      "expected_answer": "`uct[2].params.radius` in `examples/bracket_demo.ocp` is `2.5`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "2.5"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "2.5"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Governance Release Criteria require that the repository validates successfully and that schemas and examples are self-consistent (`GOVERNANCE.md:chunk-8`). The README `Validation` section says repository validation checks JSON syntax, schema compliance, and cross-file references (`README.md:chunk-12`/`chunk-14`).",
+      "case_id": "S04-Q024",
+      "expected_answer": "Governance says a draft release should validate successfully and keep schemas and examples self-consistent; README says validation checks JSON syntax, schema compliance, and cross-file references.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "validates successfully"
+        ],
+        [
+          "schemas and examples are self-consistent"
+        ],
+        [
+          "cross-file references"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. The retrieved snippets cover governance, licensing, status, and conduct material, but do not include `examples/assembly_demo.oca`, `inst_sensor_01`, or any `nets` data.",
+      "case_id": "S04-Q025",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `nets[2].nodes[1]` is `R1:2`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "R1:2"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "R1:2"
+        ]
+      ]
+    },
+    {
+      "answer": "Governance Release Criteria require that the repository validates successfully and that schemas and examples are self-consistent (`GOVERNANCE.md:chunk-8`). The README `Validation` section describes repository validation and says it checks JSON syntax, schema compliance, and cross-file references (`README.md:chunk-12`/`chunk-14`).",
+      "case_id": "S04-Q026",
+      "expected_answer": "Governance says a draft release should validate successfully and keep schemas and examples self-consistent; README says validation checks JSON syntax, schema compliance, and cross-file references.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "validates successfully"
+        ],
+        [
+          "schemas and examples are self-consistent"
+        ],
+        [
+          "cross-file references"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `uct[0].op_id`. Partial evidence: `schemas/ocp.schema.json:chunk-1` gives the `.ocp` schema title `OpenCAD Part Definition (.ocp)`.",
+      "case_id": "S04-Q027",
+      "expected_answer": "`uct[0].op_id` in `examples/bracket_demo.ocp` is `op_001`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "op_001"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "op_001"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. Partial evidence: the validator collects `source_uri` values (`scripts/validate_repo.py:collect_relative_references`), but no `inst_sensor_01` source URI or referenced `nets[1].name` value is present.",
+      "case_id": "S04-Q028",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `nets[1].name` is `GND`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "GND"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "GND"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. Partial evidence: assembly files link `.ocp` and `.oce` files by URI and the validator collects `source_uri` values, but no `inst_sensor_01` source URI or referenced `nets[0].nodes[3]` value is present.",
+      "case_id": "S04-Q029",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `nets[0].nodes[3]` is `C1:1`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "C1:1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "C1:1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to determine `mesh.elements` or the exact `.ocr` schema title. Partial evidence: `specification/Working Draft.typ:chunk-20` identifies `.ocr` as Simulation Result, but no mesh value or schema title is retrieved.",
+      "case_id": "S04-Q030",
+      "expected_answer": "`mesh.elements` in `examples/bracket_stress_result.ocr` is `1`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "1"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "1"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. No retrieved context contains `examples/bracket_stress_result.ocr`, `header.generator`, or an `.ocr` schema title; the snippets are validation, licensing, governance, and an unrelated `.ocp` schema title.",
+      "case_id": "S04-Q031",
+      "expected_answer": "`header.generator` in `examples/bracket_stress_result.ocr` is `OpenCAD_Reference_Solver_v1`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "OpenCAD_Reference_Solver_v1"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD_Reference_Solver_v1"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `instances[0].id`. Partial evidence: `schemas/oca.schema.json:chunk-1` gives the applicable schema title `OpenCAD Assembly Definition (.oca)`.",
+      "case_id": "S04-Q032",
+      "expected_answer": "`instances[0].id` in `examples/assembly_demo.oca` is `inst_bracket_01`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "inst_bracket_01"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `target.source_uri`. Partial evidence: `specification/Working Draft.typ:chunk-112` gives the governing schema title `OpenCAD Simulation Definition (.ocs)`.",
+      "case_id": "S04-Q033",
+      "expected_answer": "`target.source_uri` in `examples/bracket_stress_test.ocs` is `./assembly_demo.oca`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `mesh.nodes`. Partial evidence: `schemas/ocr.schema.json:chunk-1` gives the schema title `OpenCAD Result Definition (.ocr)`.",
+      "case_id": "S04-Q034",
+      "expected_answer": "`mesh.nodes` in `examples/bracket_stress_result.ocr` is `0`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for the README domain and schema title. Partial evidence: `specification/Working Draft.typ:chunk-20` identifies `.ocr` as Simulation Result, but no README architecture-table row or `.ocr` schema title is retrieved.",
+      "case_id": "S04-Q035",
+      "expected_answer": ".ocr is OpenCAD Result in README, described as Result metadata mapped to external binary buffers. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "OpenCAD Result"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ],
+        [
+          "Result metadata mapped to external binary buffers"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Result"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ],
+        [
+          "Result metadata mapped to external binary buffers"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. No retrieved snippet gives `fields[0].step` or an `.ocr` schema title; the available snippets are unrelated schema, contribution, and changelog fragments.",
+      "case_id": "S04-Q036",
+      "expected_answer": "`fields[0].step` in `examples/bracket_stress_result.ocr` is `1.0`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "1.0",
+          "1"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "1.0",
+          "1"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. Partial evidence: `.oca` files link `.ocp` and `.oce` files via URIs (`specification/Working Draft.typ:chunk-52`), but no `inst_bracket_01` source file or referenced `uct[1].params.direction[0]` is present.",
+      "case_id": "S04-Q037",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[1].params.direction[0]` is `0`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "0"
+        ]
+      ]
+    },
+    {
+      "answer": "README name: `OpenCAD Electrical` from `README.md:chunk-8`. Insufficient retrieved context for the `.oce` schema title; the retrieved schema-title snippets are for `.ocr` and `.oca`, and `specification/Proposal.typ:chunk-16` only identifies Electrical Design.",
+      "case_id": "S04-Q038",
+      "expected_answer": ".oce is OpenCAD Electrical in README, described as Schematics, netlists, components, and electrical connectivity. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ],
+        [
+          "Schematics, netlists, components, and electrical connectivity"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Electrical"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ],
+        [
+          "Schematics, netlists, components, and electrical connectivity"
+        ]
+      ]
+    },
+    {
+      "answer": "Governance rule: under Decision Process, semantic or schema changes should begin with an RFC issue (`GOVERNANCE.md:chunk-5`). Contributing section: `Schema Or Semantic Changes`; it says to open an issue titled `RFC: <topic>` and lists examples including new operation types, renamed fields, schema constraint changes, and interoperability behavior changes (`CONTRIBUTING.md:chunk-9`/`chunk-10`).",
+      "case_id": "S04-Q039",
+      "expected_answer": "GOVERNANCE says semantic or schema changes should begin with an RFC issue; CONTRIBUTING lists schema constraint changes and interoperability behavior changes as examples.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "RFC issue"
+        ],
+        [
+          "schema constraint changes"
+        ],
+        [
+          "interoperability behavior changes"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. Partial evidence: simulation loads and boundary conditions link to target parts or assemblies (`specification/Working Draft.typ:chunk-39`), and `.oca` files link referenced files by URI (`chunk-52`), but no `target.source_uri` or assembly name value is retrieved.",
+      "case_id": "S04-Q040",
+      "expected_answer": "`examples/bracket_stress_test.ocs` targets `./assembly_demo.oca`. The target assembly name in `examples/assembly_demo.oca` is `Bracket Sensor Assembly`.",
+      "missing_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "Bracket Sensor Assembly"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "Bracket Sensor Assembly"
+        ]
+      ]
+    },
+    {
+      "answer": "Schemas and examples are licensed under MIT (`README.md:chunk-21`; `LICENSES.md:chunk-4`). The contribution rule is that contributions are accepted under, or licensed under, the same license as the files being modified (`CONTRIBUTING.md:chunk-5`/`chunk-6`; `LICENSES.md:chunk-5`).",
+      "case_id": "S04-Q041",
+      "expected_answer": "`schemas/` and `examples/` are MIT-licensed, and changes to MIT-licensed areas are contributed under MIT.",
+      "missing_terms": [
+        [
+          "schemas/"
+        ],
+        [
+          "examples/"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/"
+        ],
+        [
+          "examples/"
+        ],
+        [
+          "MIT"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `header.version`. Partial evidence: `schemas/oca.schema.json:chunk-1` gives the schema title `OpenCAD Assembly Definition (.oca)`.",
+      "case_id": "S04-Q042",
+      "expected_answer": "`header.version` in `examples/assembly_demo.oca` is `0.1`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0.1"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for the README architecture-table name. Partial evidence: `specification/Working Draft.typ:chunk-20` identifies `.ocp` as Part, and `schemas/ocp.schema.json:chunk-1` gives the schema title `OpenCAD Part Definition (.ocp)`.",
+      "case_id": "S04-Q043",
+      "expected_answer": ".ocp is OpenCAD Part in README, described as Geometry, metadata, and unified parametric history. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Part"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ],
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to give `source_sim`, `load_force_01` type, or its target entity. Partial evidence: `source_sim` is defined as a URI to the `.ocs` file that generated the result (`specification/Working Draft.typ:chunk-140`), and simulation setup contains `boundary_conditions` and `loads` (`chunk-58`), but the specific result/setup records are not retrieved.",
+      "case_id": "S04-Q044",
+      "expected_answer": "The result source simulation is `./bracket_stress_test.ocs`. The simulation load `load_force_01` is type `FORCE` on `inst_bracket_01:face_top`.",
+      "missing_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "inst_bracket_01:face_top"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "load_force_01"
+        ],
+        [
+          "FORCE"
+        ],
+        [
+          "inst_bracket_01:face_top"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. No retrieved context contains `mesh.element_type` or an `.ocr` schema title; the available snippets are validation, licensing, governance, and conduct material.",
+      "case_id": "S04-Q045",
+      "expected_answer": "`mesh.element_type` in `examples/bracket_stress_result.ocr` is `TETRA4`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "TETRA4"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "TETRA4"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `components[1].part_number`. Partial evidence: `schemas/oce.schema.json:chunk-1` gives the applicable schema title `OpenCAD Electrical Definition (.oce)`.",
+      "case_id": "S04-Q046",
+      "expected_answer": "`components[1].part_number` in `examples/wiring_demo.oce` is `RES-10K-1%`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "RES-10K-1%"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "RES-10K-1%"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context to trace `metadata.source_sim` or identify `load_force_01` type and target entity. Partial evidence: `.ocr` metadata requires `source_sim` (`specification/Working Draft.typ:chunk-138`) and simulation setup includes loads/boundary conditions (`chunk-113`), but no concrete `source_sim` value or `load_force_01` record is retrieved.",
+      "case_id": "S04-Q047",
+      "expected_answer": "The result source simulation is `./bracket_stress_test.ocs`. The simulation load `load_force_01` is type `FORCE` on `inst_bracket_01:face_top`.",
+      "missing_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "inst_bracket_01:face_top"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "load_force_01"
+        ],
+        [
+          "FORCE"
+        ],
+        [
+          "inst_bracket_01:face_top"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `bufferViews[2].name`. Partial evidence: `schemas/ocr.schema.json:chunk-1` gives the applicable schema title `OpenCAD Result Definition (.ocr)`.",
+      "case_id": "S04-Q048",
+      "expected_answer": "`bufferViews[2].name` in `examples/bracket_stress_result.ocr` is `Von_Mises_Stress`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "Von_Mises_Stress"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Von_Mises_Stress"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context. The snippets do not include `scripts/validate_repo.py` suffix mapping for `.ocs` or the `VERSION` value. Partial evidence only shows schema header version patterns such as `^\\\\d+\\\\.\\\\d+$` in other schemas (`schemas/ocp.schema.json:chunk-3`, `schemas/ocr.schema.json:chunk-4`).",
+      "case_id": "S04-Q049",
+      "expected_answer": "The validator maps `.ocs` to `schemas/ocs.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "schemas/ocs.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/ocs.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient retrieved context for `uct[2].params.edges[0]`. Partial evidence: `schemas/ocp.schema.json:chunk-1` gives the governing schema title `OpenCAD Part Definition (.ocp)`.",
+      "case_id": "S04-Q050",
+      "expected_answer": "`uct[2].params.edges[0]` in `examples/bracket_demo.ocp` is `idx_0`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "idx_0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "idx_0"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to determine the actual source_sim for examples/bracket_stress_result.ocr or the type of load load_force_01. Retrieved context only defines source_sim as a URI to the .ocs file that generated the result (schemas/ocr.schema.json:chunk-7) and describes .ocr results generally (specification/Working Draft.typ:chunk-39).",
+      "case_id": "S05-Q001",
+      "expected_answer": "The result source simulation is `./bracket_stress_test.ocs`. The simulation load `load_force_01` is type `FORCE` on `inst_bracket_01:face_top`.",
+      "missing_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "inst_bracket_01:face_top"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "load_force_01"
+        ],
+        [
+          "FORCE"
+        ],
+        [
+          "inst_bracket_01:face_top"
+        ]
+      ]
+    },
+    {
+      "answer": "instances[1].transform[6] is not present in the retrieved contexts. The governing schema title is OpenCAD Assembly Definition (.oca) (schemas/oca.schema.json:chunk-1).",
+      "case_id": "S05-Q002",
+      "expected_answer": "`instances[1].transform[6]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "bufferViews[1].name is not present in the retrieved contexts. The applicable schema title is OpenCAD Result Definition (.ocr) (schemas/ocr.schema.json:chunk-1; specification/Working Draft.typ:chunk-134).",
+      "case_id": "S05-Q003",
+      "expected_answer": "`bufferViews[1].name` in `examples/bracket_stress_result.ocr` is `Element_Connectivity`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "Element_Connectivity"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Element_Connectivity"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to identify inst_bracket_01 source file or the referenced uct[0].params.primitives[0].center[0] value. Retrieved context only says .oca links .ocp and .oce files through relative or absolute URIs (specification/Working Draft.typ:chunk-52).",
+      "case_id": "S05-Q004",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[0].params.primitives[0].center[0]` is `0`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "0"
+        ]
+      ]
+    },
+    {
+      "answer": "The retrieved contexts identify schemas/oce.schema.json as the .oce schema artifact and give its title as OpenCAD Electrical Definition (.oce). The passing header version is not present in the retrieved contexts.",
+      "case_id": "S05-Q005",
+      "expected_answer": "The validator maps `.oce` to `schemas/oce.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/oce.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "README names .ocr as OpenCAD Result, and the schema title is OpenCAD Result Definition (.ocr) (README.md:chunk-10; schemas/ocr.schema.json:chunk-1).",
+      "case_id": "S05-Q006",
+      "expected_answer": ".ocr is OpenCAD Result in README, described as Result metadata mapped to external binary buffers. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "Result metadata mapped to external binary buffers"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Result"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ],
+        [
+          "Result metadata mapped to external binary buffers"
+        ]
+      ]
+    },
+    {
+      "answer": "instances[1].transform[14] is not present in the retrieved contexts. The schema title for .oca is OpenCAD Assembly Definition (.oca) (schemas/oca.schema.json:chunk-1).",
+      "case_id": "S05-Q007",
+      "expected_answer": "`instances[1].transform[14]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to determine target.source_uri for examples/bracket_stress_test.ocs or the exact schema title. Retrieved context only identifies .ocs as Simulation Setup among the core file types (specification/Working Draft.typ:chunk-20).",
+      "case_id": "S05-Q008",
+      "expected_answer": "`target.source_uri` in `examples/bracket_stress_test.ocs` is `./assembly_demo.oca`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to determine bufferViews[2].byteOffset or the exact .ocr schema title. Retrieved context only identifies .ocr as Simulation Result among the core file types (specification/Working Draft.typ:chunk-20).",
+      "case_id": "S05-Q009",
+      "expected_answer": "`bufferViews[2].byteOffset` in `examples/bracket_stress_result.ocr` is `20000`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "20000"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "20000"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "inst_bracket_01 uses source_uri ./bracket_demo.ocp (examples/assembly_demo.oca:chunk-2). The referenced file value uct[1].op_id is not present in the retrieved contexts.",
+      "case_id": "S05-Q010",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[1].op_id` is `op_002`.",
+      "missing_terms": [
+        [
+          "op_002"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "op_002"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to identify inst_sensor_01 source_uri or nets[0].name. Retrieved context only says .oca is a lightweight logic file that links .ocp and .oce files (specification/Proposal.typ:chunk-18) and that validators collect source_uri-style relative references (scripts/validate_repo.py:collect_relative_references.walk).",
+      "case_id": "S05-Q011",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `nets[0].name` is `VCC`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "VCC"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "VCC"
+        ]
+      ]
+    },
+    {
+      "answer": "bufferViews[1].byteLength is not present in the retrieved contexts. The retrieved context only shows the start of the Simulation Result Schema (.ocr) section and truncates before the schema title value (specification/Working Draft.typ:chunk-133).",
+      "case_id": "S05-Q012",
+      "expected_answer": "`bufferViews[1].byteLength` in `examples/bracket_stress_result.ocr` is `8000`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "8000"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "8000"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "The field example for Von_Mises_Stress has data: 2, so it indexes bufferView 2 (specification/Working Draft.typ:chunk-67; schemas/ocr.schema.json:chunk-21). The retrieved contexts do not provide the corresponding bufferView entry or backing buffer URI; they only state that buffers define URI and total byte length (specification/Working Draft.typ:chunk-64).",
+      "case_id": "S05-Q013",
+      "expected_answer": "Field `Von_Mises_Stress` uses bufferView index `2`, named `Von_Mises_Stress` with `FLOAT32` `SCALAR` data. That view points to buffer URI `./bracket_results_data.bin`.",
+      "missing_terms": [
+        [
+          "FLOAT32"
+        ],
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Von_Mises_Stress"
+        ],
+        [
+          "2"
+        ],
+        [
+          "Von_Mises_Stress"
+        ],
+        [
+          "FLOAT32"
+        ],
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ]
+      ]
+    },
+    {
+      "answer": "instances[1].transform[12] is not present in the retrieved contexts. The governing schema title is OpenCAD Assembly Definition (.oca) (schemas/oca.schema.json:chunk-1).",
+      "case_id": "S05-Q014",
+      "expected_answer": "`instances[1].transform[12]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "components[0].ref_des is not present in the retrieved contexts. The applicable schema title is OpenCAD Electrical Definition (.oce) (schemas/oce.schema.json:chunk-1).",
+      "case_id": "S05-Q015",
+      "expected_answer": "`components[0].ref_des` in `examples/wiring_demo.oce` is `U1`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "U1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "U1"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to determine bufferViews[0].name or the .ocr schema title. Retrieved contexts discuss validation, licensing, and release criteria, but do not include the .ocr example value or .ocr schema title.",
+      "case_id": "S05-Q016",
+      "expected_answer": "`bufferViews[0].name` in `examples/bracket_stress_result.ocr` is `Nodal_Coordinates`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "Nodal_Coordinates"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "Nodal_Coordinates"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "The exact README domain name for .oca is truncated in the retrieved context, which only shows the row beginning .oca | OpenCAD. The schema title is OpenCAD Assembly Definition (.oca) (schemas/oca.schema.json:chunk-1; specification/Working Draft.typ:chunk-99).",
+      "case_id": "S05-Q017",
+      "expected_answer": ".oca is OpenCAD Assembly in README, described as Instance references, transforms, constraints, and BOM logic. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "Instance references, transforms, constraints, and BOM logic"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Assembly"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ],
+        [
+          "Instance references, transforms, constraints, and BOM logic"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to determine setup.loads[1].type for examples/bracket_stress_test.ocs or the exact .ocs schema title. Retrieved context only identifies .ocs as Simulation Setup and mentions loads for CAE analysis (specification/Working Draft.typ:chunk-20; specification/Working Draft.typ:chunk-21).",
+      "case_id": "S05-Q018",
+      "expected_answer": "`setup.loads[1].type` in `examples/bracket_stress_test.ocs` is `GRAVITY`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "GRAVITY"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "GRAVITY"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "components[2].ref_des is not present in the retrieved contexts. The governing schema title is OpenCAD Electrical Definition (.oce) (schemas/oce.schema.json:chunk-1).",
+      "case_id": "S05-Q019",
+      "expected_answer": "`components[2].ref_des` in `examples/wiring_demo.oce` is `C1`. The schema title is OpenCAD Electrical Definition (.oce).",
+      "missing_terms": [
+        [
+          "C1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "C1"
+        ],
+        [
+          "OpenCAD Electrical Definition (.oce)"
+        ]
+      ]
+    },
+    {
+      "answer": "specification/ files are licensed under CC BY-SA 4.0 (README.md:chunk-20; LICENSES.md:chunk-1). The contribution rule is that contributions are licensed under the same license as the files modified, with specification/ files listed as CC BY-SA 4.0 (CONTRIBUTING.md:chunk-5; CONTRIBUTING.md:chunk-6).",
+      "case_id": "S05-Q020",
+      "expected_answer": "Files under `specification/` are CC BY-SA 4.0, and CONTRIBUTING says changes to `specification/` use CC BY-SA 4.0.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "specification/"
+        ],
+        [
+          "CC BY-SA 4.0"
+        ]
+      ]
+    },
+    {
+      "answer": "buffers[0].uri is not present in the retrieved contexts. The applicable schema title is OpenCAD Result Definition (.ocr) (schemas/ocr.schema.json:chunk-1; specification/Working Draft.typ:chunk-134).",
+      "case_id": "S05-Q021",
+      "expected_answer": "`buffers[0].uri` in `examples/bracket_stress_result.ocr` is `./bracket_results_data.bin`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_results_data.bin",
+          "bracket_results_data.bin"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to determine bufferViews[0].type or the .ocr schema title. Retrieved contexts discuss validation, licensing, repository consistency, and an unrelated operation example, but do not include the .ocr example value or title.",
+      "case_id": "S05-Q022",
+      "expected_answer": "`bufferViews[0].type` in `examples/bracket_stress_result.ocr` is `VEC3`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "VEC3"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "VEC3"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "fields[0].data is not present in the retrieved contexts. The matching schema title is OpenCAD Result Definition (.ocr) (specification/Working Draft.typ:chunk-134).",
+      "case_id": "S05-Q023",
+      "expected_answer": "`fields[0].data` in `examples/bracket_stress_result.ocr` is `2`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "2"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "2"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to determine which simulation examples/bracket_stress_result.ocr cites or the load_gravity type. Retrieved context only describes .ocs as containing FEA/CFD setup, loads, and boundary conditions (specification/Working Draft.typ:chunk-113).",
+      "case_id": "S05-Q024",
+      "expected_answer": "The result source simulation is `./bracket_stress_test.ocs`. The simulation load `load_gravity` is type `GRAVITY` on `GLOBAL`.",
+      "missing_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "GLOBAL"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./bracket_stress_test.ocs",
+          "bracket_stress_test.ocs"
+        ],
+        [
+          "load_gravity"
+        ],
+        [
+          "GRAVITY"
+        ],
+        [
+          "GLOBAL"
+        ]
+      ]
+    },
+    {
+      "answer": "The README label for .ocp is not present in the retrieved contexts. The schema title field is OpenCAD Part Definition (.ocp) (schemas/ocp.schema.json:chunk-1).",
+      "case_id": "S05-Q025",
+      "expected_answer": ".ocp is OpenCAD Part in README, described as Geometry, metadata, and unified parametric history. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Part"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ],
+        [
+          "Geometry, metadata, and unified parametric history"
+        ]
+      ]
+    },
+    {
+      "answer": "header.version for examples/assembly_demo.oca is not present in the retrieved contexts. The schema title is OpenCAD Assembly Definition (.oca) (schemas/oca.schema.json:chunk-1).",
+      "case_id": "S05-Q026",
+      "expected_answer": "`header.version` in `examples/assembly_demo.oca` is `0.1`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0.1"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "header.version for examples/bracket_demo.ocp is not present in the retrieved contexts. The schema title is OpenCAD Part Definition (.ocp) (schemas/ocp.schema.json:chunk-1).",
+      "case_id": "S05-Q027",
+      "expected_answer": "`header.version` in `examples/bracket_demo.ocp` is `0.1`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0.1"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "The exact README label for .oca is not present in the retrieved contexts. The schema title is OpenCAD Assembly Definition (.oca) (schemas/oca.schema.json:chunk-1); the specification context also identifies .oca as the Assembly File (specification/Working Draft.typ:chunk-52).",
+      "case_id": "S05-Q028",
+      "expected_answer": ".oca is OpenCAD Assembly in README, described as Instance references, transforms, constraints, and BOM logic. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "Instance references, transforms, constraints, and BOM logic"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Assembly"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ],
+        [
+          "Instance references, transforms, constraints, and BOM logic"
+        ]
+      ]
+    },
+    {
+      "answer": "setup.loads[1].vector[1] is not present in the retrieved contexts. The schema title is OpenCAD Simulation Definition (.ocs) (schemas/ocs.schema.json:chunk-1).",
+      "case_id": "S05-Q029",
+      "expected_answer": "`setup.loads[1].vector[1]` in `examples/bracket_stress_test.ocs` is `-9.81`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "-9.81"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "-9.81"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to determine bufferViews[2].byteLength or the schema title for .ocr. Retrieved contexts do not include the .ocr example value or an .ocr schema title.",
+      "case_id": "S05-Q030",
+      "expected_answer": "`bufferViews[2].byteLength` in `examples/bracket_stress_result.ocr` is `4000`. The schema title is OpenCAD Result Definition (.ocr).",
+      "missing_terms": [
+        [
+          "4000"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "4000"
+        ],
+        [
+          "OpenCAD Result Definition (.ocr)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to identify inst_sensor_01 source_uri or components[1].part_number. Retrieved context only says .oca links .ocp and .oce files (specification/Proposal.typ:chunk-18).",
+      "case_id": "S05-Q031",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `components[1].part_number` is `RES-10K-1%`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "RES-10K-1%"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "RES-10K-1%"
+        ]
+      ]
+    },
+    {
+      "answer": "instances[1].source_uri is not present in the retrieved contexts. The schema title is OpenCAD Assembly Definition (.oca) (schemas/oca.schema.json:chunk-1).",
+      "case_id": "S05-Q032",
+      "expected_answer": "`instances[1].source_uri` in `examples/assembly_demo.oca` is `./wiring_demo.oce`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "metadata.units for examples/bracket_demo.ocp is not present in the retrieved contexts. The schema title is OpenCAD Part Definition (.ocp) (schemas/ocp.schema.json:chunk-1).",
+      "case_id": "S05-Q033",
+      "expected_answer": "`metadata.units` in `examples/bracket_demo.ocp` is `mm`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [
+        [
+          "mm"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "mm"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to identify inst_sensor_01 source_uri or nets[0].name. Retrieved context only provides general repository/schema material and does not include the assembly instance or referenced .oce content.",
+      "case_id": "S05-Q034",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `nets[0].name` is `VCC`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "VCC"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "VCC"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to list the validator documentation files or the README status line naming the normative draft file. Partial evidence: README says specification/ contains Typst source for proposal and working draft documents (README.md:chunk-11), and LICENSES says specification/ covers draft standard text and normative or explanatory specification prose (LICENSES.md:chunk-2).",
+      "case_id": "S05-Q035",
+      "expected_answer": "The validator requires documentation files including README, CONTRIBUTING, CODE_OF_CONDUCT, GOVERNANCE, LICENSE, LICENSES, CHANGELOG, VERSION, and `specification/Working Draft.typ`; README names `specification/Working Draft.typ` as the current normative draft.",
+      "missing_terms": [
+        [
+          "CONTRIBUTING.md"
+        ],
+        [
+          "specification/Working Draft.typ"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "README.md"
+        ],
+        [
+          "CONTRIBUTING.md"
+        ],
+        [
+          "specification/Working Draft.typ"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to map .ocs from README to its schema title. Retrieved contexts do not include the README .ocs row or the .ocs schema title; they mainly include unrelated .ocr schema context.",
+      "case_id": "S05-Q036",
+      "expected_answer": ".ocs is OpenCAD Simulation Setup in README, described as Solver setup, meshes, loads, and boundary conditions. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "OpenCAD Simulation Setup"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ],
+        [
+          "Solver setup, meshes, loads, and boundary conditions"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "OpenCAD Simulation Setup"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ],
+        [
+          "Solver setup, meshes, loads, and boundary conditions"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to identify inst_sensor_01 source file or nets[0].nodes[1]. Retrieved context only says .oca links .ocp and .oce files via URIs (specification/Working Draft.typ:chunk-52).",
+      "case_id": "S05-Q037",
+      "expected_answer": "`inst_sensor_01` uses source URI `./wiring_demo.oce`. In `examples/wiring_demo.oce`, `nets[0].nodes[1]` is `U1:6`.",
+      "missing_terms": [
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "U1:6"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_sensor_01"
+        ],
+        [
+          "./wiring_demo.oce",
+          "wiring_demo.oce"
+        ],
+        [
+          "U1:6"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to identify the file referenced by inst_bracket_01 or uct[2].type. Partial evidence only says OpenCAD Part (.ocp) contains geometric definitions, material properties, and the UCT (specification/Working Draft.typ:chunk-36).",
+      "case_id": "S05-Q038",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[2].type` is `FILLET`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "FILLET"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "FILLET"
+        ]
+      ]
+    },
+    {
+      "answer": "uct[1].params.direction[0] is not present in the retrieved contexts. The schema title is OpenCAD Part Definition (.ocp) (schemas/ocp.schema.json:chunk-1).",
+      "case_id": "S05-Q039",
+      "expected_answer": "`uct[1].params.direction[0]` in `examples/bracket_demo.ocp` is `0`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to determine the .ocs schema file selected by the validator or the passing header version. Retrieved context mentions validation but does not include SCHEMA_BY_SUFFIX for .ocs or VERSION.",
+      "case_id": "S05-Q040",
+      "expected_answer": "The validator maps `.ocs` to `schemas/ocs.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "schemas/ocs.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/ocs.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "uct[0].params.primitives[0].center[0] is not present in the retrieved contexts. The schema title is OpenCAD Part Definition (.ocp) (schemas/ocp.schema.json:chunk-1).",
+      "case_id": "S05-Q041",
+      "expected_answer": "`uct[0].params.primitives[0].center[0]` in `examples/bracket_demo.ocp` is `0`. The schema title is OpenCAD Part Definition (.ocp).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Part Definition (.ocp)"
+        ]
+      ]
+    },
+    {
+      "answer": "results.status is not present in the retrieved contexts. The matching schema title is OpenCAD Simulation Definition (.ocs) (specification/Working Draft.typ:chunk-112).",
+      "case_id": "S05-Q042",
+      "expected_answer": "`results.status` in `examples/bracket_stress_test.ocs` is `UNSOLVED`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "UNSOLVED"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "UNSOLVED"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "The current maintainer is Nathan Sharp (MAINTAINERS.md:chunk-1). The governance section is Maintainer Authority, which points readers to MAINTAINERS.md for the current maintainer list (GOVERNANCE.md:chunk-2; GOVERNANCE.md:chunk-4).",
+      "case_id": "S05-Q043",
+      "expected_answer": "MAINTAINERS lists Nathan Sharp; GOVERNANCE points to MAINTAINERS.md for the current maintainer list.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "Nathan Sharp"
+        ],
+        [
+          "MAINTAINERS.md"
+        ]
+      ]
+    },
+    {
+      "answer": "setup.loads[1].vector[2] is not present in the retrieved contexts. The matching schema title is OpenCAD Simulation Definition (.ocs) (schemas/ocs.schema.json:chunk-1; specification/Working Draft.typ:chunk-112).",
+      "case_id": "S05-Q044",
+      "expected_answer": "`setup.loads[1].vector[2]` in `examples/bracket_stress_test.ocs` is `0`. The schema title is OpenCAD Simulation Definition (.ocs).",
+      "missing_terms": [
+        [
+          "0"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Simulation Definition (.ocs)"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to determine the simulation target or the target assembly metadata.assembly_name. Retrieved context only states that .ocs loads link to a target part or assembly and that .oca links .ocp and .oce files (specification/Working Draft.typ:chunk-39; specification/Working Draft.typ:chunk-52).",
+      "case_id": "S05-Q045",
+      "expected_answer": "`examples/bracket_stress_test.ocs` targets `./assembly_demo.oca`. The target assembly name in `examples/assembly_demo.oca` is `Bracket Sensor Assembly`.",
+      "missing_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "Bracket Sensor Assembly"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "./assembly_demo.oca",
+          "assembly_demo.oca"
+        ],
+        [
+          "Bracket Sensor Assembly"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to determine inst_bracket_01 source_uri or the referenced uct[1].params.direction[0] value. Partial evidence only says source_uri-style relative references are collected by the validator and that .oca links .ocp and .oce files (scripts/validate_repo.py:collect_relative_references; specification/Working Draft.typ:chunk-52).",
+      "case_id": "S05-Q046",
+      "expected_answer": "`inst_bracket_01` uses source URI `./bracket_demo.ocp`. In `examples/bracket_demo.ocp`, `uct[1].params.direction[0]` is `0`.",
+      "missing_terms": [
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "inst_bracket_01"
+        ],
+        [
+          "./bracket_demo.ocp",
+          "bracket_demo.ocp"
+        ],
+        [
+          "0"
+        ]
+      ]
+    },
+    {
+      "answer": "instances[0].transform[14] is not present in the retrieved contexts. The schema title is OpenCAD Assembly Definition (.oca) (schemas/oca.schema.json:chunk-1).",
+      "case_id": "S05-Q047",
+      "expected_answer": "`instances[0].transform[14]` in `examples/assembly_demo.oca` is `0`. The schema title is OpenCAD Assembly Definition (.oca).",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "0"
+        ],
+        [
+          "OpenCAD Assembly Definition (.oca)"
+        ]
+      ]
+    },
+    {
+      "answer": "The current maintainer is Nathan Sharp (MAINTAINERS.md:chunk-1). The governance section is Maintainer Authority, which points readers to MAINTAINERS.md for the current maintainer list (GOVERNANCE.md:chunk-2; GOVERNANCE.md:chunk-4).",
+      "case_id": "S05-Q048",
+      "expected_answer": "MAINTAINERS lists Nathan Sharp; GOVERNANCE points to MAINTAINERS.md for the current maintainer list.",
+      "missing_terms": [],
+      "passed": true,
+      "required_terms": [
+        [
+          "Nathan Sharp"
+        ],
+        [
+          "MAINTAINERS.md"
+        ]
+      ]
+    },
+    {
+      "answer": "Insufficient context to determine the .ocs schema path or expected version. Partial evidence: validate_examples loads schemas through SCHEMA_BY_SUFFIX[example_path.suffix] and checks header.version against VERSION, but the retrieved contexts do not include the .ocs mapping or VERSION definition (scripts/validate_repo.py:validate_examples).",
+      "case_id": "S05-Q049",
+      "expected_answer": "The validator maps `.ocs` to `schemas/ocs.schema.json` and expects header version `0.1`.",
+      "missing_terms": [
+        [
+          "schemas/ocs.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/ocs.schema.json"
+        ],
+        [
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "answer": "Schemas and examples are licensed under MIT (README.md:chunk-21; CONTRIBUTING.md:chunk-6). The contribution rule is that contributions are accepted or licensed under the license that applies to the files being modified, so MIT-covered areas remain MIT unless otherwise stated (CONTRIBUTING.md:chunk-5; CONTRIBUTING.md:chunk-6; LICENSES.md:chunk-5).",
+      "case_id": "S05-Q050",
+      "expected_answer": "`schemas/` and `examples/` are MIT-licensed, and changes to MIT-licensed areas are contributed under MIT.",
+      "missing_terms": [
+        [
+          "schemas/"
+        ],
+        [
+          "examples/"
+        ]
+      ],
+      "passed": false,
+      "required_terms": [
+        [
+          "schemas/"
+        ],
+        [
+          "examples/"
+        ],
+        [
+          "MIT"
+        ]
+      ]
+    }
+  ],
+  "summary": {
+    "answer_accuracy": 0.148,
+    "failed": 213,
+    "total_questions": 250
+  }
+}

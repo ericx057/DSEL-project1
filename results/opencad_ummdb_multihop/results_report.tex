@@ -1,0 +1,85 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\title{OpenCAD UMMDB Multihop Retrieval QA: End Results}
+\author{}
+\date{June 2, 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Evaluation Performed}
+\begin{tabular}{>{\bfseries}p{0.38\linewidth}p{0.52\linewidth}}
+Repository & \texttt{https://github.com/nathan-sharp/OpenCAD.git} \\
+Commit & \texttt{89ebcba48ebb2f162b66702fc4797c9843ec5f64} \\
+Draft version & \texttt{0.1} \\
+Evaluation & UMMDB multihop retrieval QA \\
+Harness & Generic JSONL retrieval evaluator \\
+Question sets & 5 \\
+Questions per set & 50 \\
+Total questions & 250 \\
+Seeds & \texttt{104729, 104759, 104761, 104773, 104779} \\
+Retrieval cutoff & Top 8 reranked context items \\
+Access tier & T3 full indexed corpus \\
+Passing criterion & Mean Accuracy@8 $\geq$ 0.95 and mean MRR@8 $\geq$ 0.95 \\
+\end{tabular}
+
+\section*{Aggregate End Results}
+\begin{tabular}{>{\bfseries}p{0.42\linewidth}r}
+\toprule
+Metric & Result \\
+\midrule
+Mean Accuracy@8 & 0.9920 \\
+Mean MRR@8 & 0.9533 \\
+Mean evidence file recall@8 & 0.9960 \\
+Questions with all gold evidence files retrieved & 248 / 250 \\
+Questions missing at least one gold evidence file & 2 / 250 \\
+Gate status & PASS \\
+\bottomrule
+\end{tabular}
+
+\section*{Category End Results}
+\begin{longtable}{>{\ttfamily}p{0.29\linewidth}rrrr}
+\toprule
+\normalfont Category & N & Accuracy@8 & MRR@8 & Recall@8 \\
+\midrule
+\endhead
+assembly-reference & 40 & 1.0000 & 0.9875 & 1.0000 \\
+domain-schema & 25 & 1.0000 & 0.9400 & 1.0000 \\
+example-schema & 125 & 1.0000 & 1.0000 & 1.0000 \\
+policy-crossref & 20 & 1.0000 & 0.8750 & 1.0000 \\
+result-buffer & 5 & 1.0000 & 1.0000 & 1.0000 \\
+result-simulation & 10 & 1.0000 & 1.0000 & 1.0000 \\
+simulation-target & 5 & 0.8000 & 1.0000 & 0.9000 \\
+validation-process & 5 & 1.0000 & 1.0000 & 1.0000 \\
+validation-schema-map & 15 & 0.9333 & 0.5222 & 0.9667 \\
+\bottomrule
+\end{longtable}
+
+\section*{Evaluation Artifacts}
+\begin{tabular}{>{\bfseries}p{0.32\linewidth}p{0.58\linewidth}}
+Questions & \texttt{results/opencad\_ummdb\_multihop/questions.md} \\
+Gold labels & \texttt{results/opencad\_ummdb\_multihop/gold.jsonl} \\
+Retrieval results & \texttt{results/opencad\_ummdb\_multihop/retrieval\_results.json} \\
+Report source & \texttt{results/opencad\_ummdb\_multihop/results\_report.tex} \\
+\end{tabular}
+
+\section*{Verification}
+\begin{tabular}{>{\bfseries}p{0.42\linewidth}p{0.42\linewidth}}
+Project regression tests & 131 passed \\
+Product-code coupling scan & No OpenCAD-specific hits in \texttt{src/ingestion}, \texttt{src/retrieval}, or generic evaluator \\
+OpenCAD repository validation & Passed \\
+OpenCAD validation version & 0.1 \\
+Schemas validated & 5 \\
+Examples validated & 5 \\
+\end{tabular}
+
+\section*{Scope Note}
+These are retrieval end results only. Answer-generation accuracy was not rerun and is not reported here.
+
+\end{document}

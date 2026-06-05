@@ -271,9 +271,21 @@ class SQLiteUnifiedStore(UnifiedStore):
         with self._lock, self._connection:
             ids = [row["id"] for row in self._connection.execute("SELECT id FROM artifacts WHERE repository = ?", (repository,))]
             if ids:
-                placeholders = ",".join("?" for _ in ids)
-                self._connection.execute(f"DELETE FROM edges WHERE source_id IN ({placeholders}) OR target_id IN ({placeholders})", ids + ids)
+                for chunk in self._chunks(ids, self._sqlite_variable_limit()):
+                    placeholders = ",".join("?" for _ in chunk)
+                    self._connection.execute(f"DELETE FROM edges WHERE source_id IN ({placeholders})", chunk)
+                    self._connection.execute(f"DELETE FROM edges WHERE target_id IN ({placeholders})", chunk)
             self._connection.execute("DELETE FROM artifacts WHERE repository = ?", (repository,))
+
+    def _sqlite_variable_limit(self) -> int:
+        if hasattr(self._connection, "getlimit"):
+            return max(1, min(500, self._connection.getlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER)))
+        return 500
+
+    @staticmethod
+    def _chunks(values: Sequence[str], size: int) -> Iterable[Sequence[str]]:
+        for index in range(0, len(values), size):
+            yield values[index : index + size]
 
     def vector_search(
         self,
@@ -285,14 +297,11 @@ class SQLiteUnifiedStore(UnifiedStore):
         query_embedding = self.embedding_provider.embed(query)
         rows = self._select_allowed_artifacts(user_tier, repo_scope)
         scored = []
-        query_terms = self._signal_terms(query)
         for row in rows:
             embedding = json.loads(row["embedding"])
             cosine = self._cosine(query_embedding, embedding)
-            text = f"{row['symbol_name'] or ''} {row['text']}".lower()
-            keyword_score = sum(1 for term in query_terms if term in text) * 0.05
             item = self._row_to_dict(row)
-            item["score"] = cosine + keyword_score
+            item["score"] = cosine + self._lexical_score(query, row)
             scored.append(item)
         scored.sort(key=lambda item: item["score"], reverse=True)
         return scored[:top_k]
@@ -322,9 +331,9 @@ class SQLiteUnifiedStore(UnifiedStore):
             ordered_ids.append(artifact_id)
             if current_depth >= depth:
                 continue
-            for edge in self._outgoing_edges(artifact_id):
-                if edge["target_id"] in allowed and edge["target_id"] not in seen:
-                    queue.append((edge["target_id"], current_depth + 1))
+            for neighbor_id in self._neighbor_ids(artifact_id):
+                if neighbor_id in allowed and neighbor_id not in seen:
+                    queue.append((neighbor_id, current_depth + 1))
         return [self._row_to_dict(allowed[artifact_id]) for artifact_id in ordered_ids]
 
     def list_edges(
@@ -383,42 +392,245 @@ class SQLiteUnifiedStore(UnifiedStore):
         return list(self._connection.execute(query, params))
 
     def _find_anchor_ids(self, query: str, allowed: Dict[str, sqlite3.Row]) -> List[str]:
-        terms = self._signal_terms(query)
-        anchors = []
+        terms = set(self._query_terms(query))
+        anchors: List[tuple[float, str]] = []
         for artifact_id, row in allowed.items():
-            haystack = " ".join(
-                [
-                    artifact_id,
-                    row["symbol_name"] or "",
-                    row["file_path"],
-                    row["text"],
-                    row["metadata"],
-                ]
-            ).lower()
-            score = sum(1 for term in terms if term in haystack)
-            if score:
-                anchors.append((score, artifact_id))
+            haystack = self._searchable_text(row)
+            if any(term in haystack for term in terms):
+                anchors.append((self._lexical_score(query, row), artifact_id))
         anchors.sort(key=lambda item: (-item[0], item[1]))
         return [artifact_id for _, artifact_id in anchors]
 
-    @staticmethod
-    def _signal_terms(query: str) -> set[str]:
-        return {
-            term
-            for term in HashingEmbeddingProvider._tokens(query)
-            if term not in QUERY_STOPWORDS and len(term) > 1
+    def _neighbor_ids(self, artifact_id: str) -> List[str]:
+        priority = {
+            "references": 0,
+            "validated-by": 1,
+            "calls": 2,
+            "defines": 3,
+            "imports": 4,
+            "inherits": 5,
+            "uses": 6,
+            "bridges": 7,
         }
-
-    def _outgoing_edges(self, artifact_id: str) -> List[sqlite3.Row]:
-        priority = {"calls": 0, "defines": 1, "imports": 2, "inherits": 3, "uses": 4, "bridges": 5}
         rows = list(
             self._connection.execute(
-                "SELECT source_id, target_id, relationship FROM edges WHERE source_id = ?",
-                (artifact_id,),
+                """
+                SELECT source_id, target_id, relationship FROM edges
+                WHERE source_id = ? OR target_id = ?
+                """,
+                (artifact_id, artifact_id),
             )
         )
         rows.sort(key=lambda row: priority.get(row["relationship"], 10))
-        return rows
+        neighbor_ids: List[str] = []
+        for row in rows:
+            neighbor_id = row["target_id"] if row["source_id"] == artifact_id else row["source_id"]
+            if neighbor_id not in neighbor_ids:
+                neighbor_ids.append(neighbor_id)
+        return neighbor_ids
+
+    @classmethod
+    def _lexical_score(cls, query: str, row: sqlite3.Row) -> float:
+        searchable = cls._searchable_text(row)
+        file_path = row["file_path"].lower()
+        basename = Path(row["file_path"]).name.lower()
+        suffix = Path(row["file_path"]).suffix.lower()
+        score = 0.0
+
+        for term in cls._query_terms(query):
+            if term in searchable:
+                score += 0.08
+            score += cls._path_token_score(term, file_path)
+
+        for literal in cls._query_literals(query):
+            literal = literal.lower()
+            if not literal:
+                continue
+            if literal == file_path:
+                score += 5.0
+            elif literal == basename:
+                score += 3.0
+            elif literal.endswith("/") and literal in file_path:
+                score += 0.2
+            elif literal in file_path:
+                score += 1.5
+            elif literal in searchable:
+                score += 0.8
+            if literal.startswith(".") and literal == suffix:
+                score += 2.0
+
+        for path_like in cls._path_like_terms(query):
+            if path_like == file_path:
+                score += 5.0
+            elif path_like == basename:
+                score += 3.0
+            elif path_like.endswith("/") and path_like in file_path:
+                score += 0.2
+            elif path_like in file_path:
+                score += 1.5
+            elif path_like in searchable:
+                score += 0.8
+            if path_like.startswith(".") and path_like == suffix:
+                score += 2.0
+
+        query_terms = cls._query_terms(query)
+        if "schema" in query_terms and not cls._is_policy_document_query(query_terms) and cls._is_schema_document(file_path, searchable):
+            score += 2.5
+        if cls._is_operational_query(query_terms) and cls._is_operational_artifact(file_path, row["kind"]):
+            score += 2.5
+        if cls._is_named_config_match(query_terms, file_path, row["line_end"]):
+            score += 6.0
+
+        return score
+
+    @staticmethod
+    def _searchable_text(row: sqlite3.Row) -> str:
+        return " ".join(
+            [
+                row["id"],
+                row["symbol_name"] or "",
+                row["file_path"],
+                Path(row["file_path"]).name,
+                row["kind"],
+                row["text"],
+                row["metadata"],
+            ]
+        ).lower()
+
+    @classmethod
+    def _query_terms(cls, query: str) -> List[str]:
+        normalized = query.lower().replace("\\", "/")
+        terms = [
+            term
+            for term in HashingEmbeddingProvider._tokens(normalized)
+            if term not in QUERY_STOPWORDS and len(term) > 1
+        ]
+        terms.extend(cls._path_like_terms(normalized))
+        for literal in cls._query_literals(normalized):
+            terms.extend(
+                term
+                for term in HashingEmbeddingProvider._tokens(literal)
+                if term not in QUERY_STOPWORDS and len(term) > 1
+            )
+            terms.append(literal)
+        return list(dict.fromkeys(term for term in terms if term))
+
+    @staticmethod
+    def _query_literals(query: str) -> List[str]:
+        return [match.strip().lower().replace("\\", "/") for match in re.findall(r"`([^`]+)`", query)]
+
+    @staticmethod
+    def _path_like_terms(query: str) -> List[str]:
+        normalized = query.lower().replace("\\", "/")
+        candidates = re.findall(r"[a-z0-9_./-]+(?:\[[0-9]+\])?(?:\.[a-z0-9_./-]+)*", normalized)
+        return list(
+            dict.fromkeys(
+                candidate.strip(".,:;()[]{}'\"")
+                for candidate in candidates
+                if "/" in candidate or "." in candidate or "[" in candidate
+            )
+        )
+
+    @classmethod
+    def _path_token_score(cls, term: str, file_path: str) -> float:
+        if not term or len(term) < 3:
+            return 0.0
+        high_tokens, low_tokens = cls._path_token_groups(file_path)
+        if term in high_tokens:
+            return 0.6
+        if any(cls._tokens_are_related(term, token) for token in high_tokens):
+            return 0.35
+        if term in low_tokens:
+            return 0.25
+        if any(cls._tokens_are_related(term, token) for token in low_tokens):
+            return 0.15
+        return 0.0
+
+    @staticmethod
+    def _path_token_groups(file_path: str) -> tuple[set[str], set[str]]:
+        normalized = file_path.lower().replace("\\", "/")
+        path = Path(normalized)
+        high_values = {
+            normalized,
+            path.name,
+            path.stem,
+            path.suffix.lstrip("."),
+        }
+        high_values.update(re.split(r"[^a-z0-9]+", path.name))
+        high_values.update(re.split(r"[^a-z0-9]+", path.stem))
+        low_values = set(re.split(r"[^a-z0-9]+", path.parent.as_posix()))
+        return (
+            {value for value in high_values if value},
+            {value for value in low_values if value and value != "."},
+        )
+
+    @classmethod
+    def _tokens_are_related(cls, left: str, right: str) -> bool:
+        left_stem = cls._light_stem(left)
+        right_stem = cls._light_stem(right)
+        if len(left_stem) < 5 or len(right_stem) < 5:
+            return False
+        return left_stem[:5] == right_stem[:5]
+
+    @staticmethod
+    def _light_stem(value: str) -> str:
+        for suffix in ("ization", "ation", "tion", "ing", "ers", "er", "ed", "es", "s"):
+            if value.endswith(suffix) and len(value) > len(suffix) + 3:
+                return value[: -len(suffix)]
+        return value
+
+    @staticmethod
+    def _is_schema_document(file_path: str, searchable: str) -> bool:
+        return file_path.endswith(".schema.json") or "document_role = json schema" in searchable
+
+    @classmethod
+    def _is_operational_query(cls, query_terms: Sequence[str]) -> bool:
+        operational_terms = {
+            "script",
+            "validator",
+            "workflow",
+            "command",
+            "implements",
+            "install",
+            "build",
+            "test",
+            "lint",
+        }
+        return any(term in operational_terms for term in query_terms)
+
+    @staticmethod
+    def _is_operational_artifact(file_path: str, kind: str) -> bool:
+        path = Path(file_path.lower())
+        suffix = path.suffix
+        if suffix in {".py", ".js", ".ts", ".sh", ".ps1", ".bat", ".cmd", ".yml", ".yaml", ".toml", ".ini", ".cfg"}:
+            return True
+        if any(part in {"scripts", "tools", "workflows", ".github", ".gitlab", ".circleci"} for part in path.parts):
+            return True
+        return any(marker in kind for marker in ("function", "method", "class", "module"))
+
+    @classmethod
+    def _is_named_config_match(cls, query_terms: Sequence[str], file_path: str, line_end: int) -> bool:
+        path = Path(file_path.lower())
+        if path.suffix or line_end > 3:
+            return False
+        name_tokens, _ = cls._path_token_groups(file_path)
+        return any(term in name_tokens for term in query_terms)
+
+    @staticmethod
+    def _is_policy_document_query(query_terms: Sequence[str]) -> bool:
+        markers = {
+            "policy",
+            "policies",
+            "governance",
+            "contributing",
+            "contribution",
+            "license",
+            "licensing",
+            "maintainer",
+            "release",
+            "rfc",
+        }
+        return any(term in markers for term in query_terms)
 
     @staticmethod
     def _cosine(left: Sequence[float], right: Sequence[float]) -> float:

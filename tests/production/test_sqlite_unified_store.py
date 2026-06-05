@@ -1,4 +1,5 @@
 from pathlib import Path
+import sqlite3
 
 from retrieval.database import (
     ArtifactRecord,
@@ -100,3 +101,33 @@ def test_sqlite_store_graph_search_walks_allowed_edges_only(tmp_path: Path):
     assert {item["id"] for item in results} == {"repo-a:handler", "repo-a:service-summary"}
     assert all(item["tier"] <= 2 for item in results)
 
+
+def test_sqlite_store_delete_repository_chunks_large_edge_deletes(tmp_path: Path):
+    store = SQLiteUnifiedStore(tmp_path / "cis.db", HashingEmbeddingProvider(dimensions=8))
+    if hasattr(store._connection, "setlimit"):
+        store._connection.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 50)
+    artifacts = [
+        ArtifactRecord(
+            artifact_id=f"repo-a:item-{index}",
+            repository="repo-a",
+            file_path=f"item_{index}.py",
+            language="python",
+            text=f"def item_{index}(): pass",
+            tier=1,
+            fidelity="L-1",
+            symbol_name=f"item_{index}",
+        )
+        for index in range(80)
+    ]
+    store.upsert_artifacts(artifacts)
+    store.upsert_edges(
+        [
+            GraphEdgeRecord(f"repo-a:item-{index}", f"repo-a:item-{index + 1}", "calls")
+            for index in range(79)
+        ]
+    )
+
+    store.delete_repository("repo-a")
+
+    assert store.vector_search("item", user_tier=3, repo_scope=["repo-a"], top_k=10) == []
+    assert store.list_edges(user_tier=3, repo_scope=["repo-a"]) == []
