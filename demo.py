@@ -19,7 +19,7 @@ BORDER  = "#3a3a3c"
 ACCENT  = "#0a84ff"
 FG      = "#f5f5f7"
 FG2     = "#aeaeb2"
-FG3     = "#636366"
+FG3     = "#8e8e93"
 GREEN   = "#30d158"
 RED_C   = "#ff453a"
 DIVIDER = "#38383a"
@@ -90,8 +90,6 @@ class SpotlightDemo:
         x  = (sw - W_COLL) // 2
         y  = sh // 3
         self.root.geometry(f"{W_COLL}x{H_COLL}+{x}+{y}")
-        self._origin_x = x
-        self._origin_y = y
 
         outer = tk.Frame(self.root, bg=BORDER, padx=1, pady=1)
         outer.pack(fill=tk.BOTH, expand=True)
@@ -101,15 +99,21 @@ class SpotlightDemo:
         self._build_search_bar()
         self._build_results_panel()
 
-        self.root.bind("<Escape>", lambda _: self._collapse())
+        self.root.bind_all("<Escape>", lambda _: self._collapse())
         self._entry.bind("<Return>",   lambda _: self._submit())
         self._entry.bind("<KP_Enter>", lambda _: self._submit())
 
-        for w in (self._bar, self._icon_lbl, self._status_dot):
-            w.bind("<ButtonPress-1>", self._drag_start)
-            w.bind("<B1-Motion>",     self._drag_move)
+        # Drag: bind to every widget in the bar except the entry itself
+        self._make_draggable(self._bar)
 
-        self._entry.focus_set()
+        # overrideredirect windows on macOS need explicit activation sequence
+        self.root.update_idletasks()
+        self.root.withdraw()
+        self.root.deiconify()
+        self.root.lift()
+        self.root.focus_force()
+        self.root.after(100, self._entry.focus_force)
+        self.root.after(150, lambda: self._make_draggable(self._bar))
 
         if auto_query:
             self.root.after(400, lambda: self._fire(auto_query))
@@ -261,9 +265,10 @@ class SpotlightDemo:
         if self._expanded:
             return
         self._expanded = True
-        # Pack results first (invisible until window is tall enough)
         self._divider.pack(fill=tk.X)
         self._results_frame.pack(fill=tk.BOTH, expand=True)
+        # Bind drag to the new area after it's packed
+        self.root.after(10, lambda: self._make_draggable(self._results_frame))
         self._anim_frame = 0
         self._anim_frames = max(1, ANIM_MS // 16)
         self._anim_start_w = self.root.winfo_width()
@@ -393,6 +398,16 @@ class SpotlightDemo:
         return "\n".join(lines)
 
     # ── Drag ────────────────────────────────────────────────────────────────────
+
+    def _make_draggable(self, widget):
+        """Recursively bind drag to widget and all children, skipping Entry."""
+        if isinstance(widget, tk.Entry):
+            return
+        widget.bind("<ButtonPress-1>",  self._drag_start, add="+")
+        widget.bind("<B1-Motion>",      self._drag_move,  add="+")
+        widget.configure(cursor="fleur")
+        for child in widget.winfo_children():
+            self._make_draggable(child)
 
     def _drag_start(self, e):
         self._dx = e.x_root - self.root.winfo_x()
