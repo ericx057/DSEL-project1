@@ -127,19 +127,16 @@ class DemoApp:
         self._dx = self._dy  = 0
 
         self.root = tk.Tk()
-        self.root.title("DSEL")
-        self.root.overrideredirect(True)
-        self.root.attributes("-topmost", True)
-        self.root.configure(bg=BORDER)
+        self.root.title("DSEL — Code Intelligence")
+        self.root.configure(bg=BG)
         if sys.platform == "darwin":
             self.root.attributes("-alpha", 0.97)
 
         sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
         self.root.geometry(f"{self.W}x{self.H}+{(sw-self.W)//2}+{(sh-self.H)//2}")
+        self.root.resizable(True, True)
 
-        outer = tk.Frame(self.root, bg=BORDER, padx=1, pady=1)
-        outer.pack(fill=tk.BOTH, expand=True)
-        body = tk.Frame(outer, bg=BG)
+        body = tk.Frame(self.root, bg=BG)
         body.pack(fill=tk.BOTH, expand=True)
 
         self._build_titlebar(body)
@@ -392,23 +389,9 @@ class DemoApp:
     # ── global hotkey: Fn + ⌘ ─────────────────────────────────────────────
 
     def _start_hotkey(self):
-        try:
-            from pynput import keyboard
-            held: set = set()
-
-            def on_press(key):
-                held.add(key)
-                if {keyboard.Key.fn, keyboard.Key.cmd} <= held:
-                    self.root.after(0, self._toggle)
-
-            def on_release(key):
-                held.discard(key)
-
-            t = keyboard.Listener(on_press=on_press, on_release=on_release)
-            t.daemon = True
-            t.start()
-        except Exception:
-            pass
+        # Cmd+H minimises/restores (within-focus shortcut; no system-level hook needed).
+        self.root.bind_all("<Command-h>", lambda _: self._toggle())
+        self.root.bind_all("<Escape>",    lambda _: self._toggle())
 
     def _toggle(self):
         if self.root.state() == "iconic":
