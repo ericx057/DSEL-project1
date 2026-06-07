@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DSEL Floating Island — Code Intelligence Demo for FreeCAD."""
+"""DSEL — Spotlight-style code intelligence demo for FreeCAD."""
 
 from __future__ import annotations
 
@@ -12,44 +12,48 @@ from typing import Any, Dict, List, Optional
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-# ── Palette (GitHub Dark) ──────────────────────────────────────────────────
-BG       = "#0d1117"
-SURFACE  = "#161b22"
-SURF2    = "#21262d"
-BORDER   = "#30363d"
-ACCENT   = "#58a6ff"
-FG       = "#e6edf3"
-FG2      = "#8b949e"
-FG3      = "#6e7681"
-GREEN    = "#3fb950"
-RED_COL  = "#ff7b72"
-USER_BG  = "#1c2128"
-MONO     = "SF Mono"    if sys.platform == "darwin" else "Consolas"
-SANS     = "SF Pro Text" if sys.platform == "darwin" else "Segoe UI"
+# ── Palette ────────────────────────────────────────────────────────────────────
+BG      = "#1c1c1e"   # near-black, like macOS dark glass
+PILL    = "#2c2c2e"   # search bar bg
+BORDER  = "#3a3a3c"
+ACCENT  = "#0a84ff"   # Apple blue
+FG      = "#f5f5f7"
+FG2     = "#aeaeb2"
+FG3     = "#636366"
+GREEN   = "#30d158"
+RED_C   = "#ff453a"
+DIVIDER = "#38383a"
+RESULT  = "#232325"
+MONO    = "SF Mono"    if sys.platform == "darwin" else "Consolas"
+SANS    = "SF Pro Text" if sys.platform == "darwin" else "Segoe UI"
 
-DEMO_QUESTIONS = [
+W_COLL  = 640          # collapsed width
+H_COLL  = 56           # collapsed height
+W_EXP   = 860          # expanded width
+H_EXP   = 520          # expanded height
+RADIUS  = 12           # visual corner radius (simulated via padding)
+
+DEMO_Q = [
     "How does the Sketcher workbench propagate geometric constraint changes "
     "through the GCS solver, and which functions are called when a redundancy "
     "is detected?",
-    "When a user saves a FreeCAD document containing a boolean cut operation, "
-    "trace the full call chain from App::Document::save() through Part topology "
+    "Trace the call from App::Document::save() through Part topology "
     "serialization to the final FCStd container format.",
 ]
 
 
-# ── Retrieval engine ───────────────────────────────────────────────────────
+# ── Retrieval engine ────────────────────────────────────────────────────────────
 
 class RetrievalEngine:
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self):
         self._searcher = None
         self._reranker = None
         try:
             from src.retrieval.database import SQLiteUnifiedStore, HashingEmbeddingProvider
             from src.retrieval.hybrid import HybridSearcher
             from src.retrieval.reranker import LexicalReranker
-            if db_path is None:
-                db_path = ROOT / ".cis" / "index.db"
-            store          = SQLiteUnifiedStore(db_path, HashingEmbeddingProvider())
+            db = ROOT / ".cis" / "index.db"
+            store = SQLiteUnifiedStore(db, HashingEmbeddingProvider())
             self._searcher = HybridSearcher(store, lambda_ratio=0.6)
             self._reranker = LexicalReranker()
         except Exception as exc:
@@ -65,344 +69,292 @@ class RetrievalEngine:
         hits = self._searcher.search(query, user_tier=1)
         return self._reranker.rerank(query, hits, top_m=top_k)
 
-    def synthesize(self, query: str, hits: List[Dict[str, Any]]) -> str:
-        if not hits:
-            return (
-                "No indexed artifacts matched this query.\n\n"
-                "Index a repository first:\n"
-                "  python -m src.ingestion.cli index <repo-path>"
-            )
-        lines = [f"Found {len(hits)} relevant artifact(s).\n"]
-        for i, h in enumerate(hits[:6], 1):
-            fp      = h.get("file_path", "")
-            sym     = h.get("symbol_name") or ""
-            kind    = h.get("kind", "chunk")
-            lang    = h.get("language", "")
-            ls, le  = h.get("line_start", 0), h.get("line_end", 0)
-            text    = h.get("text", "")
-            snippet = "\n    ".join(text.splitlines()[:4])
-            loc     = f"  L{ls}–{le}" if ls else ""
-            lines.append(f"{i}. {fp}{loc}")
-            if sym:
-                lines.append(f"   {sym}  [{kind}]  {lang}")
-            if snippet:
-                lines.append(f"   ···\n    {snippet}")
-        lines.append("\nRanked by hybrid semantic + lexical score.")
-        return "\n".join(lines)
 
+# ── App ─────────────────────────────────────────────────────────────────────────
 
-# ── Scrollable frame ───────────────────────────────────────────────────────
-
-class ScrollFrame(tk.Frame):
-    def __init__(self, parent, bg: str, **kw):
-        super().__init__(parent, bg=bg, **kw)
-        self._c   = tk.Canvas(self, bg=bg, highlightthickness=0, bd=0)
-        self._vsb = tk.Scrollbar(self, orient="vertical", command=self._c.yview)
-        self.inner = tk.Frame(self._c, bg=bg)
-        self._win  = self._c.create_window((0, 0), window=self.inner, anchor="nw")
-        self._c.configure(yscrollcommand=self._vsb.set)
-        self._vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        self._c.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.inner.bind("<Configure>", lambda _: self._c.configure(
-            scrollregion=self._c.bbox("all")))
-        self._c.bind("<Configure>", lambda e: self._c.itemconfig(self._win, width=e.width))
-
-    def scroll_bottom(self):
-        self.after(60, lambda: self._c.yview_moveto(1.0))
-
-    def clear(self):
-        for w in self.inner.winfo_children():
-            w.destroy()
-
-
-# ── Main application ───────────────────────────────────────────────────────
-
-class DemoApp:
-    W, H = 980, 620
-
+class SpotlightDemo:
     def __init__(self):
-        self.engine          = RetrievalEngine()
-        self._busy           = False
-        self._loading_widget: Optional[tk.Widget] = None
-        self._dx = self._dy  = 0
+        self.engine   = RetrievalEngine()
+        self._busy    = False
+        self._expanded = False
+        self._dx = self._dy = 0
 
         self.root = tk.Tk()
-        self.root.title("DSEL — Code Intelligence")
-        self.root.configure(bg=BG)
+        self.root.overrideredirect(True)
+        self.root.configure(bg=BORDER)
         if sys.platform == "darwin":
-            self.root.attributes("-alpha", 0.97)
+            self.root.attributes("-alpha", 0.96)
 
-        sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
-        self.root.geometry(f"{self.W}x{self.H}+{(sw-self.W)//2}+{(sh-self.H)//2}")
-        self.root.resizable(True, True)
+        # Center collapsed window
+        sw = self.root.winfo_screenwidth()
+        sh = self.root.winfo_screenheight()
+        x  = (sw - W_COLL) // 2
+        y  = sh // 3          # slightly above center, like Spotlight
+        self.root.geometry(f"{W_COLL}x{H_COLL}+{x}+{y}")
 
-        body = tk.Frame(self.root, bg=BG)
-        body.pack(fill=tk.BOTH, expand=True)
+        # 1-px border frame
+        outer = tk.Frame(self.root, bg=BORDER, padx=1, pady=1)
+        outer.pack(fill=tk.BOTH, expand=True)
 
-        self._build_titlebar(body)
-        self._build_body(body)
-        self._start_hotkey()
-        self._post_assistant(
-            "Welcome to DSEL — Code Intelligence for FreeCAD.\n\n"
-            "I will retrieve the most relevant source artifacts for your question "
-            "and show exactly which files were found.\n\n"
-            "Suggested multihop questions:\n"
-            + "\n".join(f"  {i+1}. {q}" for i, q in enumerate(DEMO_QUESTIONS))
+        self._main = tk.Frame(outer, bg=BG)
+        self._main.pack(fill=tk.BOTH, expand=True)
+
+        self._build_search_bar()
+        self._build_results_panel()
+
+        # Keyboard shortcuts
+        self.root.bind("<Escape>", lambda _: self._collapse())
+        self._entry.bind("<Return>",       lambda _: self._submit())
+        self._entry.bind("<KP_Enter>",     lambda _: self._submit())
+        self._entry.bind("<Shift-Return>", lambda e: "break")  # prevent submit on shift-return
+
+        # Drag
+        for w in (self._bar, self._icon_lbl, self._status_dot):
+            w.bind("<ButtonPress-1>",  self._drag_start)
+            w.bind("<B1-Motion>",      self._drag_move)
+
+        self._entry.focus_set()
+
+    # ── Search bar ──────────────────────────────────────────────────────────────
+
+    def _build_search_bar(self):
+        self._bar = tk.Frame(self._main, bg=BG, height=H_COLL)
+        self._bar.pack(fill=tk.X)
+        self._bar.pack_propagate(False)
+
+        # Search icon
+        self._icon_lbl = tk.Label(
+            self._bar, text="⌕", fg=FG3, bg=BG,
+            font=(SANS, 20), padx=14, cursor="fleur",
         )
-        if not self.engine.ready:
-            self._post_assistant(
-                "[Retrieval offline]  Index a repo first:\n"
-                "  python -m src.ingestion.cli index <path-to-freecad>"
-            )
+        self._icon_lbl.pack(side=tk.LEFT)
 
-    # ── title bar ──────────────────────────────────────────────────────────
+        # Text entry — fills available space
+        self._entry = tk.Entry(
+            self._bar,
+            bg=BG, fg=FG, insertbackground=FG,
+            font=(SANS, 15),
+            relief=tk.FLAT, bd=0,
+            highlightthickness=0,
+        )
+        self._entry.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=10)
+        self._set_placeholder()
 
-    def _build_titlebar(self, parent):
-        bar = tk.Frame(parent, bg=SURFACE, height=38)
-        bar.pack(fill=tk.X)
-        bar.pack_propagate(False)
-        bar.bind("<ButtonPress-1>", self._drag_start)
-        bar.bind("<B1-Motion>",     self._drag_move)
+        # Status dot + hint
+        right = tk.Frame(self._bar, bg=BG)
+        right.pack(side=tk.RIGHT, padx=14)
+        dot_color = GREEN if self.engine.ready else RED_C
+        self._status_dot = tk.Label(right, text="●", fg=dot_color, bg=BG, font=(SANS, 9))
+        self._status_dot.pack(side=tk.LEFT)
+        tk.Label(right, text=" esc", fg=FG3, bg=BG, font=(MONO, 10)).pack(side=tk.LEFT)
 
-        left = tk.Frame(bar, bg=SURFACE)
-        left.pack(side=tk.LEFT, padx=14)
-        for w in (left,):
-            w.bind("<ButtonPress-1>", self._drag_start)
-            w.bind("<B1-Motion>",     self._drag_move)
+    def _set_placeholder(self):
+        hint = DEMO_Q[0][:60] + "…"
+        self._entry.delete(0, tk.END)
+        self._entry.insert(0, hint)
+        self._entry.configure(fg=FG3)
+        self._entry.bind("<FocusIn>", self._clear_placeholder)
 
-        def lbl(p, text, fg, font, side=tk.LEFT):
-            l = tk.Label(p, text=text, fg=fg, bg=SURFACE, font=font)
-            l.pack(side=side)
-            l.bind("<ButtonPress-1>", self._drag_start)
-            l.bind("<B1-Motion>",     self._drag_move)
-            return l
+    def _clear_placeholder(self, _=None):
+        if self._entry.cget("fg") == FG3:
+            self._entry.delete(0, tk.END)
+            self._entry.configure(fg=FG)
+        self._entry.unbind("<FocusIn>")
 
-        lbl(left, "◈ ", ACCENT,  (SANS, 14, "bold"))
-        lbl(left, "DSEL",  FG,   (SANS, 12, "bold"))
-        lbl(left, "  ·  Code Intelligence", FG3, (SANS, 10))
-        status_color = GREEN if self.engine.ready else RED_COL
-        lbl(left, "  ●", status_color, (SANS, 10))
-        lbl(left, " indexed" if self.engine.ready else " offline", FG3, (SANS, 9))
+    # ── Results panel (hidden until first query) ────────────────────────────────
 
-        ctrl = tk.Frame(bar, bg=SURFACE)
-        ctrl.pack(side=tk.RIGHT, padx=14)
+    def _build_results_panel(self):
+        # Divider
+        self._divider = tk.Frame(self._main, bg=DIVIDER, height=1)
 
-        def btn(text, cmd, hover):
-            b = tk.Label(ctrl, text=text, fg=FG2, bg=SURFACE,
-                         font=(SANS, 15), cursor="hand2", padx=4)
-            b.pack(side=tk.RIGHT)
-            b.bind("<Button-1>", lambda _: cmd())
-            b.bind("<Enter>",    lambda _: b.configure(fg=hover))
-            b.bind("<Leave>",    lambda _: b.configure(fg=FG2))
+        # Two-column results area
+        self._results_frame = tk.Frame(self._main, bg=BG)
 
-        btn("×", self.root.quit,    RED_COL)
-        btn("−", self.root.iconify, FG)
-        tk.Frame(parent, bg=BORDER, height=1).pack(fill=tk.X)
-
-    # ── two-panel body ─────────────────────────────────────────────────────
-
-    def _build_body(self, parent):
-        pane = tk.Frame(parent, bg=BG)
-        pane.pack(fill=tk.BOTH, expand=True)
-
-        # left: file list
-        left = tk.Frame(pane, bg=SURFACE, width=290)
-        left.pack(side=tk.LEFT, fill=tk.Y)
+        # Left: file list
+        left = tk.Frame(self._results_frame, bg=BG, width=260)
+        left.pack(side=tk.LEFT, fill=tk.Y, padx=0)
         left.pack_propagate(False)
 
-        lhdr = tk.Frame(left, bg=SURFACE, height=34)
-        lhdr.pack(fill=tk.X)
-        lhdr.pack_propagate(False)
-        tk.Label(lhdr, text="Retrieved Files", fg=FG2, bg=SURFACE,
-                 font=(SANS, 9, "bold")).pack(side=tk.LEFT, padx=12, pady=8)
-        self._count_lbl = tk.Label(lhdr, text="", fg=ACCENT, bg=SURFACE,
-                                   font=(SANS, 9))
-        self._count_lbl.pack(side=tk.RIGHT, padx=12)
-        tk.Frame(left, bg=BORDER, height=1).pack(fill=tk.X)
-        self._files_sf = ScrollFrame(left, bg=SURFACE)
-        self._files_sf.pack(fill=tk.BOTH, expand=True)
-        tk.Label(self._files_sf.inner,
-                 text="Ask a question to\nsee retrieved artifacts",
-                 fg=FG3, bg=SURFACE, font=(SANS, 10), justify="center"
-                 ).pack(pady=40)
+        tk.Label(left, text="RETRIEVED FILES", fg=FG3, bg=BG,
+                 font=(SANS, 9, "bold"), anchor="w",
+                 padx=14, pady=8).pack(fill=tk.X)
 
-        # divider
-        tk.Frame(pane, bg=BORDER, width=1).pack(side=tk.LEFT, fill=tk.Y)
+        file_scroll_outer = tk.Frame(left, bg=BG)
+        file_scroll_outer.pack(fill=tk.BOTH, expand=True)
+        self._file_canvas = tk.Canvas(file_scroll_outer, bg=BG,
+                                       highlightthickness=0, bd=0)
+        self._file_inner  = tk.Frame(self._file_canvas, bg=BG)
+        win = self._file_canvas.create_window((0, 0), window=self._file_inner, anchor="nw")
+        self._file_canvas.pack(fill=tk.BOTH, expand=True)
+        self._file_inner.bind("<Configure>", lambda _: self._file_canvas.configure(
+            scrollregion=self._file_canvas.bbox("all")))
+        self._file_canvas.bind("<Configure>", lambda e:
+            self._file_canvas.itemconfig(win, width=e.width))
 
-        # right: chat
-        right = tk.Frame(pane, bg=BG)
+        # Vertical divider
+        tk.Frame(self._results_frame, bg=DIVIDER, width=1).pack(side=tk.LEFT, fill=tk.Y)
+
+        # Right: response
+        right = tk.Frame(self._results_frame, bg=BG)
         right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self._chat_sf = ScrollFrame(right, bg=BG)
-        self._chat_sf.pack(fill=tk.BOTH, expand=True)
-        tk.Frame(right, bg=BORDER, height=1).pack(fill=tk.X)
-        self._build_input(right)
 
-    def _build_input(self, parent):
-        area = tk.Frame(parent, bg=SURF2, padx=12, pady=10)
-        area.pack(fill=tk.X)
-        box = tk.Frame(area, bg=SURFACE)
-        box.pack(fill=tk.X)
+        tk.Label(right, text="RESPONSE", fg=FG3, bg=BG,
+                 font=(SANS, 9, "bold"), anchor="w",
+                 padx=14, pady=8).pack(fill=tk.X)
 
-        self._inp = tk.Text(
-            box, height=2, bg=SURFACE, fg=FG, font=(SANS, 11),
-            relief="flat", bd=8, insertbackground=ACCENT,
-            wrap=tk.WORD, selectbackground=ACCENT,
+        resp_outer = tk.Frame(right, bg=BG)
+        resp_outer.pack(fill=tk.BOTH, expand=True, padx=14, pady=(0, 14))
+        self._resp_text = tk.Text(
+            resp_outer,
+            bg=BG, fg=FG2, font=(MONO, 11),
+            relief=tk.FLAT, bd=0, highlightthickness=0,
+            wrap=tk.WORD, state=tk.DISABLED,
+            selectbackground=ACCENT,
         )
-        self._inp.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self._inp.bind("<Return>",   self._on_enter)
-        self._inp.bind("<FocusIn>",  self._inp_focus_in)
-        self._inp.bind("<FocusOut>", self._inp_focus_out)
-        self._inp.insert("1.0", self._PH)
-        self._inp.configure(fg=FG3)
+        vsb = tk.Scrollbar(resp_outer, orient="vertical",
+                            command=self._resp_text.yview)
+        self._resp_text.configure(yscrollcommand=vsb.set)
+        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self._resp_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        send = tk.Button(
-            box, text="↵", command=self._send,
-            bg=ACCENT, fg="#000", font=(SANS, 13, "bold"),
-            relief="flat", bd=0, padx=12, cursor="hand2",
-            activebackground="#79c0ff", activeforeground="#000",
-        )
-        send.pack(side=tk.RIGHT, padx=(4, 0), pady=4)
+    # ── Submit query ────────────────────────────────────────────────────────────
 
-        tk.Label(area, text="Return to send  ·  Shift+Return for newline  ·  Fn+⌘ to toggle",
-                 fg=FG3, bg=SURF2, font=(SANS, 8)).pack(anchor="w", pady=(4, 0))
-
-    _PH = "Ask anything about the codebase…"
-
-    def _inp_focus_in(self, _):
-        if self._inp.get("1.0", "end-1c") == self._PH:
-            self._inp.delete("1.0", tk.END)
-            self._inp.configure(fg=FG)
-
-    def _inp_focus_out(self, _):
-        if not self._inp.get("1.0", "end-1c").strip():
-            self._inp.insert("1.0", self._PH)
-            self._inp.configure(fg=FG3)
-
-    def _on_enter(self, e):
-        if not (e.state & 0x1):
-            self._send()
-            return "break"
-
-    # ── send / retrieve ────────────────────────────────────────────────────
-
-    def _send(self):
-        raw = self._inp.get("1.0", "end-1c").strip()
-        if not raw or raw == self._PH or self._busy:
+    def _submit(self):
+        if self._busy:
             return
-        self._inp.delete("1.0", tk.END)
-        self._inp.insert("1.0", self._PH)
-        self._inp.configure(fg=FG3)
-        self._post_user(raw)
+        self._clear_placeholder()
+        query = self._entry.get().strip()
+        if not query or self._entry.cget("fg") == FG3:
+            return
+
         self._busy = True
-        self._loading_widget = self._post_assistant("Retrieving…", ephemeral=True)
-        threading.Thread(target=self._worker, args=(raw,), daemon=True).start()
+        self._entry.configure(state=tk.DISABLED)
+        self._expand()
+        self._clear_files()
+        self._set_response("Searching…")
+
+        threading.Thread(target=self._worker, args=(query,), daemon=True).start()
 
     def _worker(self, query: str):
-        try:
-            hits     = self.engine.search(query)
-            response = self.engine.synthesize(query, hits)
-            self.root.after(0, self._finish, hits, response)
-        except Exception as exc:
-            self.root.after(0, self._finish, [], f"Error: {exc}")
+        hits = self.engine.search(query, top_k=8)
+        self.root.after(0, self._finish, hits, query)
 
-    def _finish(self, hits: List[Dict], response: str):
-        self._busy = False
-        if self._loading_widget and self._loading_widget.winfo_exists():
-            self._loading_widget.destroy()
-        self._post_assistant(response)
+    def _finish(self, hits: List[Dict[str, Any]], query: str):
         self._render_files(hits)
+        self._set_response(self._synthesize(hits))
+        self._entry.configure(state=tk.NORMAL)
+        self._busy = False
 
-    # ── chat bubbles ───────────────────────────────────────────────────────
+    # ── Expand / collapse ────────────────────────────────────────────────────────
 
-    def _post_user(self, text: str) -> tk.Widget:
-        return self._bubble(text, "user")
-
-    def _post_assistant(self, text: str, ephemeral: bool = False) -> tk.Widget:
-        return self._bubble(text, "assistant")
-
-    def _bubble(self, text: str, role: str) -> tk.Widget:
-        is_user = role == "user"
-        wrap = tk.Frame(self._chat_sf.inner, bg=BG, padx=14, pady=4)
-        wrap.pack(fill=tk.X, anchor="e" if is_user else "w")
-        tk.Label(wrap, text="You" if is_user else "DSEL",
-                 fg=ACCENT if is_user else FG2, bg=BG,
-                 font=(SANS, 8, "bold")).pack(anchor="e" if is_user else "w")
-        tk.Label(
-            wrap, text=text,
-            bg=USER_BG if is_user else SURFACE,
-            fg=FG, font=(SANS, 11),
-            wraplength=520, justify="left",
-            anchor="w", padx=12, pady=8,
-        ).pack(anchor="e" if is_user else "w", fill=None if is_user else tk.X)
-        self._chat_sf.scroll_bottom()
-        return wrap
-
-    # ── files panel ────────────────────────────────────────────────────────
-
-    def _render_files(self, hits: List[Dict]):
-        self._files_sf.clear()
-        self._count_lbl.configure(text=f"{len(hits)} found" if hits else "")
-        if not hits:
-            tk.Label(self._files_sf.inner, text="No results",
-                     fg=FG3, bg=SURFACE, font=(SANS, 10)).pack(pady=20)
+    def _expand(self):
+        if self._expanded:
             return
-        KIND = {"function": "ƒ", "class": "C", "method": "m", "module": "M", "chunk": "¶"}
-        for idx, h in enumerate(hits):
-            bg  = SURF2 if idx % 2 == 0 else SURFACE
-            row = tk.Frame(self._files_sf.inner, bg=bg, pady=5, padx=10)
-            row.pack(fill=tk.X, pady=1)
+        self._expanded = True
+        x = self.root.winfo_x()
+        y = self.root.winfo_y()
+        # Shift window up so search bar stays at same position
+        new_y = max(0, y - (H_EXP - H_COLL))
+        self.root.geometry(f"{W_EXP}x{H_EXP}+{x}+{new_y}")
+        self._divider.pack(fill=tk.X)
+        self._results_frame.pack(fill=tk.BOTH, expand=True)
+
+    def _collapse(self):
+        if not self._expanded:
+            self.root.quit()
+            return
+        self._expanded = False
+        self._results_frame.pack_forget()
+        self._divider.pack_forget()
+        x = self.root.winfo_x()
+        y = self.root.winfo_y()
+        self.root.geometry(f"{W_COLL}x{H_COLL}+{x}+{y}")
+        self._entry.configure(state=tk.NORMAL)
+        self._set_placeholder()
+
+    # ── File list ─────────────────────────────────────────────────────────────────
+
+    def _clear_files(self):
+        for w in self._file_inner.winfo_children():
+            w.destroy()
+
+    KIND_ICON = {"function": "ƒ", "class": "C", "method": "m",
+                 "module": "M", "chunk": "·"}
+
+    def _render_files(self, hits: List[Dict[str, Any]]):
+        self._clear_files()
+        for h in hits:
             fp   = h.get("file_path", "")
             sym  = h.get("symbol_name") or ""
             kind = h.get("kind", "chunk")
-            lang = h.get("language", "")
-            ls   = h.get("line_start", 0)
-            le   = h.get("line_end", 0)
             parts = fp.split("/")
-            short = "/".join(parts[-2:]) if len(parts) > 2 else fp
-            top = tk.Frame(row, bg=bg)
-            top.pack(fill=tk.X)
-            tk.Label(top, text=KIND.get(kind, "·"), fg=ACCENT, bg=bg,
-                     font=(MONO, 11, "bold")).pack(side=tk.LEFT)
-            tk.Label(top, text=f" {short}", fg=FG, bg=bg,
-                     font=(MONO, 9)).pack(side=tk.LEFT)
-            if lang:
-                tk.Label(top, text=lang, fg=FG3, bg=bg,
-                         font=(SANS, 8)).pack(side=tk.RIGHT)
-            detail = []
-            if sym:
-                detail.append(sym)
-            if ls:
-                detail.append(f"L{ls}–{le}")
-            if detail:
-                tk.Label(row, text="  ".join(detail), fg=FG2, bg=bg,
-                         font=(MONO, 9)).pack(anchor="w")
+            name  = parts[-1] if parts else fp
+            parent = "/".join(parts[-3:-1]) if len(parts) > 2 else ""
 
-    # ── drag ──────────────────────────────────────────────────────────────
+            row = tk.Frame(self._file_inner, bg=BG, cursor="hand2")
+            row.pack(fill=tk.X, padx=10, pady=2)
+
+            icon = self.KIND_ICON.get(kind, "·")
+            tk.Label(row, text=icon, fg=ACCENT, bg=BG,
+                     font=(MONO, 11, "bold"), width=2).pack(side=tk.LEFT)
+            info = tk.Frame(row, bg=BG)
+            info.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            tk.Label(info, text=name, fg=FG, bg=BG,
+                     font=(MONO, 10), anchor="w").pack(fill=tk.X)
+            if parent:
+                tk.Label(info, text=parent, fg=FG3, bg=BG,
+                         font=(SANS, 9), anchor="w").pack(fill=tk.X)
+            if sym:
+                tk.Label(info, text=sym, fg=FG2, bg=BG,
+                         font=(MONO, 9), anchor="w").pack(fill=tk.X)
+
+    # ── Response ────────────────────────────────────────────────────────────────
+
+    def _set_response(self, text: str):
+        self._resp_text.configure(state=tk.NORMAL)
+        self._resp_text.delete("1.0", tk.END)
+        self._resp_text.insert(tk.END, text)
+        self._resp_text.configure(state=tk.DISABLED)
+
+    def _synthesize(self, hits: List[Dict[str, Any]]) -> str:
+        if not hits:
+            return (
+                "No indexed artifacts matched.\n\n"
+                "Build the corpus first:\n"
+                "  python3 evaluation/build_freecad_corpus.py"
+            )
+        lines = [f"{len(hits)} artifact(s) retrieved.\n"]
+        for i, h in enumerate(hits[:6], 1):
+            fp   = h.get("file_path", "")
+            sym  = h.get("symbol_name") or ""
+            kind = h.get("kind", "chunk")
+            text = h.get("text", "")
+            snip = "\n  ".join(text.splitlines()[:4])
+            ls, le = h.get("line_start", 0), h.get("line_end", 0)
+            loc = f" L{ls}–{le}" if ls else ""
+            lines.append(f"[{i}] {fp}{loc}")
+            if sym:
+                lines.append(f"    {sym}  [{kind}]")
+            if snip:
+                lines.append(f"  ···\n  {snip}")
+            lines.append("")
+        lines.append("Ranked by hybrid semantic + lexical score.")
+        return "\n".join(lines)
+
+    # ── Drag ─────────────────────────────────────────────────────────────────────
 
     def _drag_start(self, e):
         self._dx = e.x_root - self.root.winfo_x()
         self._dy = e.y_root - self.root.winfo_y()
 
     def _drag_move(self, e):
-        self.root.geometry(f"+{e.x_root-self._dx}+{e.y_root-self._dy}")
+        self.root.geometry(f"+{e.x_root - self._dx}+{e.y_root - self._dy}")
 
-    # ── global hotkey: Fn + ⌘ ─────────────────────────────────────────────
-
-    def _start_hotkey(self):
-        # Cmd+H minimises/restores (within-focus shortcut; no system-level hook needed).
-        self.root.bind_all("<Command-h>", lambda _: self._toggle())
-        self.root.bind_all("<Escape>",    lambda _: self._toggle())
-
-    def _toggle(self):
-        if self.root.state() == "iconic":
-            self.root.deiconify()
-            self.root.lift()
-        else:
-            self.root.iconify()
+    # ── Run ──────────────────────────────────────────────────────────────────────
 
     def run(self):
         self.root.mainloop()
 
 
 if __name__ == "__main__":
-    DemoApp().run()
+    SpotlightDemo().run()
