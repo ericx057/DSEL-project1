@@ -58,7 +58,14 @@ def load_retrieval(db_path: Path):
     from src.retrieval.hybrid import HybridSearcher
     from src.retrieval.reranker import LexicalReranker
 
-    store    = SQLiteUnifiedStore(db_path, HashingEmbeddingProvider())
+    if "nomic" in str(db_path):
+        from src.retrieval.embeddings import make_nomic_provider
+        provider = make_nomic_provider(local_files_only=False)
+        print("[eval] Using nomic embedding provider for query encoding")
+    else:
+        provider = HashingEmbeddingProvider()
+
+    store    = SQLiteUnifiedStore(db_path, provider)
     searcher = HybridSearcher(store, lambda_ratio=0.6, vector_top_k=20,
                               graph_depth=3, graph_breadth=50)
     reranker = LexicalReranker()

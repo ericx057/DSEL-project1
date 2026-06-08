@@ -221,49 +221,52 @@ class SQLiteUnifiedStore(UnifiedStore):
             self._connection.execute("CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id)")
             self._connection.execute("CREATE INDEX IF NOT EXISTS idx_artifacts_file_path ON artifacts(file_path)")
 
+    _EMBED_BATCH = 64   # artifacts per embed_many call
+
     def upsert_artifacts(self, artifacts: Sequence[ArtifactRecord]) -> None:
+        if not artifacts:
+            return
         now = time.time()
+        _SQL = """
+            INSERT INTO artifacts (
+                id, repository, file_path, language, text, tier, fidelity,
+                symbol_name, line_start, line_end, kind, embedding, metadata, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                repository=excluded.repository,
+                file_path=excluded.file_path,
+                language=excluded.language,
+                text=excluded.text,
+                tier=excluded.tier,
+                fidelity=excluded.fidelity,
+                symbol_name=excluded.symbol_name,
+                line_start=excluded.line_start,
+                line_end=excluded.line_end,
+                kind=excluded.kind,
+                embedding=excluded.embedding,
+                metadata=excluded.metadata,
+                updated_at=excluded.updated_at
+        """
         with self._lock, self._connection:
-            for artifact in artifacts:
-                embedding = self.embedding_provider.embed(artifact.text)
-                self._connection.execute(
-                    """
-                    INSERT INTO artifacts (
-                        id, repository, file_path, language, text, tier, fidelity,
-                        symbol_name, line_start, line_end, kind, embedding, metadata, updated_at
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET
-                        repository=excluded.repository,
-                        file_path=excluded.file_path,
-                        language=excluded.language,
-                        text=excluded.text,
-                        tier=excluded.tier,
-                        fidelity=excluded.fidelity,
-                        symbol_name=excluded.symbol_name,
-                        line_start=excluded.line_start,
-                        line_end=excluded.line_end,
-                        kind=excluded.kind,
-                        embedding=excluded.embedding,
-                        metadata=excluded.metadata,
-                        updated_at=excluded.updated_at
-                    """,
-                    (
-                        artifact.artifact_id,
-                        artifact.repository,
-                        artifact.file_path,
-                        artifact.language,
-                        artifact.text,
-                        artifact.tier,
-                        artifact.fidelity,
-                        artifact.symbol_name,
-                        artifact.line_start,
-                        artifact.line_end,
-                        artifact.kind,
-                        json.dumps(embedding),
-                        json.dumps(artifact.metadata, sort_keys=True),
-                        now,
-                    ),
+            for i in range(0, len(artifacts), self._EMBED_BATCH):
+                batch = artifacts[i : i + self._EMBED_BATCH]
+                embeddings = self.embedding_provider.embed_many(
+                    [a.text for a in batch]
+                )
+                self._connection.executemany(
+                    _SQL,
+                    [
+                        (
+                            a.artifact_id, a.repository, a.file_path, a.language,
+                            a.text, a.tier, a.fidelity, a.symbol_name,
+                            a.line_start, a.line_end, a.kind,
+                            json.dumps(emb),
+                            json.dumps(a.metadata, sort_keys=True),
+                            now,
+                        )
+                        for a, emb in zip(batch, embeddings)
+                    ],
                 )
             self._emb_cache = None  # invalidate so next search rebuilds
 

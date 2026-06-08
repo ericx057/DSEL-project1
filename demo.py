@@ -196,8 +196,26 @@ class RetrievalEngine:
             from src.retrieval.database import SQLiteUnifiedStore, HashingEmbeddingProvider
             from src.retrieval.hybrid import HybridSearcher
             from src.retrieval.reranker import LexicalReranker
-            db = ROOT / ".cis" / "index.db"
-            store = SQLiteUnifiedStore(db, HashingEmbeddingProvider())
+
+            # DSEL_INDEX overrides; otherwise prefer nomic index if it exists
+            env_db = os.environ.get("DSEL_INDEX")
+            if env_db:
+                db = Path(env_db)
+            elif (ROOT / ".cis-nomic" / "index.db").exists():
+                db = ROOT / ".cis-nomic" / "index.db"
+                print("[demo] Using nomic semantic index", file=sys.stderr)
+            else:
+                db = ROOT / ".cis" / "index.db"
+
+            # For a nomic index the DB stores 768-dim embeddings; the provider
+            # used at query time must match what was used at index time.
+            if "nomic" in str(db):
+                from src.retrieval.embeddings import make_nomic_provider
+                provider = make_nomic_provider(local_files_only=False)
+            else:
+                provider = HashingEmbeddingProvider()
+
+            store = SQLiteUnifiedStore(db, provider)
             self._searcher = HybridSearcher(store, lambda_ratio=0.6)
             self._reranker = LexicalReranker()
         except Exception as exc:
