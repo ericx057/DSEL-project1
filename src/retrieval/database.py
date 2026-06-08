@@ -450,10 +450,9 @@ class SQLiteUnifiedStore(UnifiedStore):
     _QUALIFIED_SYM_RE = re.compile(
         r"`?([A-Z][A-Za-z0-9_]*)(?:::[A-Za-z0-9_]+)+`?"
     )
-    # Matches bare backtick-quoted CamelCase identifiers of length ≥ 6 (class names without ::).
-    # Minimum length avoids extracting common short tokens like Gui, App, FEM, etc.
+    # Matches bare backtick-quoted identifiers starting with uppercase, length ≥ 2.
     _BACKTICK_CLASS_RE = re.compile(
-        r"`([A-Z][A-Za-z0-9_]{5,})`"
+        r"`([A-Z][A-Za-z0-9_]{1,})`"
     )
 
     def filename_search(
@@ -488,18 +487,20 @@ class SQLiteUnifiedStore(UnifiedStore):
         for m in self._QUALIFIED_SYM_RE.finditer(query):
             full = m.group(0).strip("`")
             parts = full.split("::")
-            # Only use the last uppercase-starting component — that's the class/type,
-            # not enclosing namespaces like Gui/App/Base which produce huge hit lists.
-            uppercase_parts = [p for p in parts if p and p[0].isupper()]
-            if not uppercase_parts:
-                continue
-            cls = uppercase_parts[-1]  # innermost = the actual class
-            if cls not in class_names_for_text_fallback:
-                class_names_for_text_fallback.append(cls)
-            for ext in all_exts:
-                candidate = f"{cls.lower()}{ext}"
-                if candidate not in basenames:
-                    basenames.append(candidate)
+            # Add every uppercase-starting component — the reranker's overlap+file
+            # scores will surface the right file even when multiple components map
+            # to files (e.g. GCS::System → both GCS.h and SubSystem.cpp get fn_match,
+            # but GCS.h wins on overlap; Gui::Document → both Gui*.h and Document.cpp
+            # get fn_match, but Document.cpp wins on overlap for openCommand query).
+            for part in parts:
+                if not part or not part[0].isupper():
+                    continue
+                if part not in class_names_for_text_fallback:
+                    class_names_for_text_fallback.append(part)
+                for ext in all_exts:
+                    candidate = f"{part.lower()}{ext}"
+                    if candidate not in basenames:
+                        basenames.append(candidate)
 
         for m in self._BACKTICK_CLASS_RE.finditer(query):
             cls = m.group(1)
@@ -562,6 +563,11 @@ class SQLiteUnifiedStore(UnifiedStore):
                 " OR LOWER(file_path) LIKE '%.py'){kind_order}".format(kind_order=kind_order)
             )
             rows = self._connection.execute(sql_t, params_t).fetchall()
+            # If the class name appears in too many files it is a generic term
+            # (e.g. "Visibility", "Base") — skip entirely to avoid flooding results.
+            unique_files_in_fallback = len({r["file_path"] for r in rows})
+            if unique_files_in_fallback > 8:
+                continue
             # Cap text-fallback results more aggressively — they're lower-confidence.
             text_file_counts: Dict[str, int] = {}
             for row in rows:

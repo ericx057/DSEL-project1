@@ -102,13 +102,34 @@ class LexicalReranker:
         "inherit", "inherits", "inheritance", "subclass", "superclass",
         "interface", "abstract", "virtual", "override",
         "hierarchy", "parent", "ancestor",
+        "derive", "derives", "derived", "extends", "extend",
+    })
+
+    # Short generic path segments that appear in almost every FreeCAD file path —
+    # filtering these out prevents path_bonus from firing on noise.
+    _GENERIC_PATH_SEGS = frozenset({
+        "app", "gui", "src", "mod", "base", "part", "fem", "cam", "cpp",
+        "inc", "lib", "bin", "obj", "out", "tmp", "var", "the", "and",
     })
 
     def rerank(self, query: str, chunks: List[Dict[str, Any]], top_m: int = 8) -> List[Dict[str, Any]]:
         query_terms = self._terms(query)
         query_lower = query.lower()
-        # Detect hierarchy-style queries that expect header files over implementations.
-        is_hierarchy_query = bool(query_terms & self._HIERARCHY_TERMS)
+        # Extract path-qualifier tokens: words ≥ 5 chars that look like directory
+        # names and appear literally in the query (e.g. "planegcs", "sketcher").
+        path_qualifiers = {
+            t for t in re.findall(r'\b[a-z][a-z0-9_]{4,}\b', query_lower)
+            if t not in self._GENERIC_PATH_SEGS and t not in self.STOPWORDS
+        }
+        # Detect hierarchy/definition queries that prefer header files.
+        _DEF_RE = re.compile(
+            r'\b(?:where is|where does|where are|which file|which class|which header'
+            r'|is defined|are defined|what base|what class|what interface)\b'
+        )
+        is_hierarchy_query = (
+            bool(query_terms & self._HIERARCHY_TERMS)
+            or bool(_DEF_RE.search(query_lower))
+        )
         scored_chunks = []
         for chunk in chunks:
             metadata = chunk.get("metadata") or {}
@@ -157,8 +178,12 @@ class LexicalReranker:
                 # Call-chain / implementation queries: let overlap score decide, no static bias.
                 impl_bonus = 0
             else:
-                # Embedding-ranked results: prefer implementation files over headers.
-                impl_bonus = 1 if file_basename.endswith((".cpp", ".c", ".py")) else 0
+                # Embedding-ranked results: prefer headers on hierarchy/definition
+                # queries, implementation files otherwise.
+                if is_hierarchy_query:
+                    impl_bonus = 1 if file_basename.endswith((".h", ".hpp", ".hxx")) else 0
+                else:
+                    impl_bonus = 1 if file_basename.endswith((".cpp", ".c", ".py")) else 0
 
             # Penalise test/mock paths — they often match on content but are not
             # the canonical implementation the query is asking about.
@@ -166,9 +191,18 @@ class LexicalReranker:
 
             # Bonus for artifacts fetched via filename/symbol search — they are
             # a direct name match and must not be crowded out by noisy term hits.
-            fn_bonus = 5 if is_fn_match else (2 if chunk.get("_text_match") else 0)
+            fn_bonus = 5 if is_fn_match else (4 if chunk.get("_text_match") else 0)
 
-            score = overlap_score + exact_symbol_score + file_score + impl_bonus + test_penalty + fn_bonus
+            # Bonus when a path-qualifier word from the query (e.g. "planegcs",
+            # "sketcher") appears as a DIRECTORY segment in the artifact's file
+            # path — disambiguates same-named files in different subdirectories.
+            # Uses /<word>/ matching to avoid false-positives on filenames.
+            path_bonus = (
+                3 if path_qualifiers and any(f"/{pq}/" in file_path for pq in path_qualifiers)
+                else 0
+            )
+
+            score = overlap_score + exact_symbol_score + file_score + impl_bonus + test_penalty + fn_bonus + path_bonus
             chunk_copy = chunk.copy()
             chunk_copy["rerank_score"] = float(score)
             scored_chunks.append(chunk_copy)
