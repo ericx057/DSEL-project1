@@ -65,7 +65,7 @@ class RetrievalEngine:
     def search(self, query: str, top_k: int = 8) -> List[Dict[str, Any]]:
         if not self.ready:
             return []
-        hits = self._searcher.search(query, user_tier=1)
+        hits = self._searcher.search(query, user_tier=3)
         return self._reranker.rerank(query, hits, top_m=top_k)
 
 

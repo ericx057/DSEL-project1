@@ -98,9 +98,17 @@ class LexicalReranker:
         pattern = r"(?<![:\w])" + re.escape(sym) + r"(?![:\w.])"
         return bool(re.search(pattern, query_lower))
 
+    _HIERARCHY_TERMS = frozenset({
+        "inherit", "inherits", "inheritance", "subclass", "superclass",
+        "interface", "abstract", "virtual", "override",
+        "hierarchy", "parent", "ancestor",
+    })
+
     def rerank(self, query: str, chunks: List[Dict[str, Any]], top_m: int = 8) -> List[Dict[str, Any]]:
         query_terms = self._terms(query)
         query_lower = query.lower()
+        # Detect hierarchy-style queries that expect header files over implementations.
+        is_hierarchy_query = bool(query_terms & self._HIERARCHY_TERMS)
         scored_chunks = []
         for chunk in chunks:
             metadata = chunk.get("metadata") or {}
@@ -136,13 +144,31 @@ class LexicalReranker:
             file_score = (
                 8 if file_path and file_path in query_lower
                 else 5 if file_basename and file_basename in query_lower
-                else 3 if file_stem and len(file_stem) > 3 and file_stem.lower() in query_lower
+                else 3 if file_stem and len(file_stem) >= 3 and file_stem.lower() in query_lower
                 else 0
             )
             # Prefer implementation files over headers when scores are otherwise equal.
-            impl_bonus = 1 if file_basename.endswith((".cpp", ".c", ".py")) else 0
+            is_fn_match = bool(chunk.get("_fn_match"))
+            is_text_match = bool(chunk.get("_text_match"))
+            if (is_fn_match or is_text_match) and is_hierarchy_query:
+                # Hierarchy queries ("inherit", "base class", "defined") expect headers.
+                impl_bonus = 1 if file_basename.endswith((".h", ".hpp", ".hxx")) else 0
+            elif is_fn_match or is_text_match:
+                # Call-chain / implementation queries: let overlap score decide, no static bias.
+                impl_bonus = 0
+            else:
+                # Embedding-ranked results: prefer implementation files over headers.
+                impl_bonus = 1 if file_basename.endswith((".cpp", ".c", ".py")) else 0
 
-            score = overlap_score + exact_symbol_score + file_score + impl_bonus
+            # Penalise test/mock paths — they often match on content but are not
+            # the canonical implementation the query is asking about.
+            test_penalty = -3 if re.search(r"(?:^|/)(?:tests?|test_|mock|stub)", file_path) else 0
+
+            # Bonus for artifacts fetched via filename/symbol search — they are
+            # a direct name match and must not be crowded out by noisy term hits.
+            fn_bonus = 5 if is_fn_match else (2 if chunk.get("_text_match") else 0)
+
+            score = overlap_score + exact_symbol_score + file_score + impl_bonus + test_penalty + fn_bonus
             chunk_copy = chunk.copy()
             chunk_copy["rerank_score"] = float(score)
             scored_chunks.append(chunk_copy)

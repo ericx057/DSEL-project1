@@ -12,6 +12,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
+try:
+    import numpy as np
+    _NUMPY = True
+except ImportError:
+    _NUMPY = False
+
 from src.retrieval.embeddings import EmbeddingProvider
 
 class UnifiedStore(ABC):
@@ -158,6 +164,8 @@ class SQLiteUnifiedStore(UnifiedStore):
         self._connection = sqlite3.connect(self.db_path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         self._init_schema()
+        # Embedding cache: loaded once, reused for every vector_search call.
+        self._emb_cache: Optional[Dict[str, Any]] = None  # set by _ensure_emb_cache()
 
     def close(self) -> None:
         with self._lock:
@@ -211,6 +219,7 @@ class SQLiteUnifiedStore(UnifiedStore):
             )
             self._connection.execute("CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id)")
             self._connection.execute("CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id)")
+            self._connection.execute("CREATE INDEX IF NOT EXISTS idx_artifacts_file_path ON artifacts(file_path)")
 
     def upsert_artifacts(self, artifacts: Sequence[ArtifactRecord]) -> None:
         now = time.time()
@@ -256,6 +265,7 @@ class SQLiteUnifiedStore(UnifiedStore):
                         now,
                     ),
                 )
+            self._emb_cache = None  # invalidate so next search rebuilds
 
     def upsert_edges(self, edges: Sequence[GraphEdgeRecord]) -> None:
         with self._lock, self._connection:
@@ -275,6 +285,24 @@ class SQLiteUnifiedStore(UnifiedStore):
                 self._connection.execute(f"DELETE FROM edges WHERE source_id IN ({placeholders}) OR target_id IN ({placeholders})", ids + ids)
             self._connection.execute("DELETE FROM artifacts WHERE repository = ?", (repository,))
 
+    def _ensure_emb_cache(self) -> None:
+        """Load all artifact embeddings into memory once for fast repeated vector_search calls."""
+        if self._emb_cache is not None:
+            return
+        rows = list(self._connection.execute("SELECT id, tier, repository, embedding FROM artifacts"))
+        ids = [r["id"] for r in rows]
+        tiers = [r["tier"] for r in rows]
+        repos = [r["repository"] for r in rows]
+        if _NUMPY:
+            matrix = np.array([json.loads(r["embedding"]) for r in rows], dtype=np.float32)
+        else:
+            matrix = [json.loads(r["embedding"]) for r in rows]
+        self._emb_cache = {"ids": ids, "tiers": tiers, "repos": repos, "matrix": matrix}
+
+    def invalidate_emb_cache(self) -> None:
+        """Call after upsert_artifacts so the next search rebuilds the cache."""
+        self._emb_cache = None
+
     def vector_search(
         self,
         query: str,
@@ -282,18 +310,65 @@ class SQLiteUnifiedStore(UnifiedStore):
         repo_scope: Optional[Sequence[str]] = None,
         top_k: int = 20,
     ) -> List[Dict[str, Any]]:
-        query_embedding = self.embedding_provider.embed(query)
-        rows = self._select_allowed_artifacts(user_tier, repo_scope)
-        scored = []
+        self._ensure_emb_cache()
+        cache = self._emb_cache
+        assert cache is not None
+
+        query_vec = self.embedding_provider.embed(query)
         query_terms = self._signal_terms(query)
+
+        # Build boolean mask for tier + repo filter.
+        ids = cache["ids"]
+        tiers = cache["tiers"]
+        repos = cache["repos"]
+        matrix = cache["matrix"]
+
+        if _NUMPY:
+            if len(ids) == 0:
+                return []
+            qv = np.array(query_vec, dtype=np.float32)
+            scores = matrix @ qv  # (N,) cosine similarities (pre-normalised embeddings)
+
+            # Apply tier/repo filter and keyword bonus in one pass.
+            repo_set = set(repo_scope) if repo_scope is not None else None
+            results = []
+            for i, (artifact_id, tier, repo, cos) in enumerate(zip(ids, tiers, repos, scores)):
+                if tier > user_tier:
+                    continue
+                if repo_set is not None and repo not in repo_set:
+                    continue
+                results.append((float(cos), artifact_id))
+        else:
+            repo_set = set(repo_scope) if repo_scope is not None else None
+            results = []
+            for i, (artifact_id, tier, repo, emb) in enumerate(zip(ids, tiers, repos, matrix)):
+                if tier > user_tier:
+                    continue
+                if repo_set is not None and repo not in repo_set:
+                    continue
+                cos = self._cosine(query_vec, emb)
+                results.append((cos, artifact_id))
+
+        results.sort(key=lambda x: x[0], reverse=True)
+        top_ids = {aid for _, aid in results[:top_k * 4]}  # fetch a wider slice for keyword rerank
+
+        # Fetch full rows for the top candidates only.
+        if not top_ids:
+            return []
+        placeholders = ",".join("?" for _ in top_ids)
+        rows = self._connection.execute(
+            f"SELECT * FROM artifacts WHERE id IN ({placeholders})", list(top_ids)
+        ).fetchall()
+
+        scored = []
+        score_map = {aid: cos for cos, aid in results}
         for row in rows:
-            embedding = json.loads(row["embedding"])
-            cosine = self._cosine(query_embedding, embedding)
             text = f"{row['symbol_name'] or ''} {row['text']}".lower()
             keyword_score = sum(1 for term in query_terms if term in text) * 0.05
             item = self._row_to_dict(row)
-            item["score"] = cosine + keyword_score
+            item["score"] = score_map.get(row["id"], 0.0) + keyword_score
             scored.append(item)
+
         scored.sort(key=lambda item: item["score"], reverse=True)
         return scored[:top_k]
 
@@ -366,6 +441,147 @@ class SQLiteUnifiedStore(UnifiedStore):
             [user_tier, *artifact_ids],
         ).fetchall()
         return [self._row_to_dict(row) for row in rows]
+
+    # Matches explicit source file basenames: Document.cpp, GCS.h, sketch.py …
+    _FILENAME_RE = re.compile(
+        r"\b([A-Za-z_][A-Za-z0-9_]*\.(cpp|cxx|cc|c|h|hpp|hxx|py|pyx))\b"
+    )
+    # Matches C++ qualified symbols with at least one :: segment.
+    _QUALIFIED_SYM_RE = re.compile(
+        r"`?([A-Z][A-Za-z0-9_]*)(?:::[A-Za-z0-9_]+)+`?"
+    )
+    # Matches bare backtick-quoted CamelCase identifiers of length ≥ 6 (class names without ::).
+    # Minimum length avoids extracting common short tokens like Gui, App, FEM, etc.
+    _BACKTICK_CLASS_RE = re.compile(
+        r"`([A-Z][A-Za-z0-9_]{5,})`"
+    )
+
+    def filename_search(
+        self,
+        query: str,
+        user_tier: int,
+        repo_scope: Optional[Sequence[str]] = None,
+        max_per_file: int = 2,
+    ) -> List[Dict[str, Any]]:
+        """Return artifacts for source files referenced (directly or via C++ symbols) in the query.
+
+        Three extraction passes:
+        1. Explicit basenames — ``Document.cpp``, ``GCS.h``, ``Sketch.py``
+        2. Qualified C++ symbols — ``ClassName::method`` → infer ``ClassName.cpp`` / ``ClassName.h``
+        3. Bare backtick class names — `` `SketchObject` `` → infer ``SketchObject.h`` / ``.cpp``
+
+        For any class name where the inferred filename produces no DB hit, falls back to a
+        text-content LIKE search so that files like ``PropertyLinks.cpp`` are found even when
+        the class ``PropertyLinkSub`` doesn't appear in the file name.
+        """
+        source_exts = (".cpp", ".cxx", ".cc", ".c", ".py")
+        header_exts = (".h", ".hpp", ".hxx")
+        all_exts = (*header_exts, *source_exts)  # headers first for hierarchy queries
+
+        basenames: list[str] = [
+            m.group(1).lower() for m in self._FILENAME_RE.finditer(query)
+        ]
+
+        # Track which class names to attempt text fallback for if filename lookup misses.
+        class_names_for_text_fallback: list[str] = []
+
+        for m in self._QUALIFIED_SYM_RE.finditer(query):
+            full = m.group(0).strip("`")
+            parts = full.split("::")
+            # Only use the last uppercase-starting component — that's the class/type,
+            # not enclosing namespaces like Gui/App/Base which produce huge hit lists.
+            uppercase_parts = [p for p in parts if p and p[0].isupper()]
+            if not uppercase_parts:
+                continue
+            cls = uppercase_parts[-1]  # innermost = the actual class
+            if cls not in class_names_for_text_fallback:
+                class_names_for_text_fallback.append(cls)
+            for ext in all_exts:
+                candidate = f"{cls.lower()}{ext}"
+                if candidate not in basenames:
+                    basenames.append(candidate)
+
+        for m in self._BACKTICK_CLASS_RE.finditer(query):
+            cls = m.group(1)
+            # Skip if already captured by qualified symbol regex.
+            if cls not in class_names_for_text_fallback:
+                class_names_for_text_fallback.append(cls)
+            for ext in all_exts:
+                candidate = f"{cls.lower()}{ext}"
+                if candidate not in basenames:
+                    basenames.append(candidate)
+
+        results: List[Dict[str, Any]] = []
+        seen_ids: set[str] = set()
+        file_counts: Dict[str, int] = {}
+        files_found_by_name: set[str] = set()  # basenames that got filename hits
+
+        def _add_rows(rows: list) -> None:
+            for row in rows:
+                if row["id"] in seen_ids:
+                    continue
+                fp = row["file_path"]
+                if file_counts.get(fp, 0) >= max_per_file:
+                    continue
+                seen_ids.add(row["id"])
+                file_counts[fp] = file_counts.get(fp, 0) + 1
+                item = self._row_to_dict(row)
+                item["score"] = 1.0
+                item["_fn_match"] = True
+                results.append(item)
+
+        def _repo_clause() -> tuple[str, list]:
+            if repo_scope is None:
+                return "", []
+            if not repo_scope:
+                return " AND 1=0", []
+            placeholders = ",".join("?" for _ in repo_scope)
+            return f" AND repository IN ({placeholders})", list(repo_scope)
+
+        repo_sql, repo_params = _repo_clause()
+        kind_order = " ORDER BY CASE kind WHEN 'class' THEN 0 WHEN 'function' THEN 1 WHEN 'method' THEN 2 ELSE 3 END"
+
+        for basename in dict.fromkeys(basenames):
+            params: List[Any] = [user_tier, f"%{basename}"] + repo_params
+            sql = f"SELECT * FROM artifacts WHERE tier <= ? AND LOWER(file_path) LIKE ?{repo_sql}{kind_order}"
+            rows = self._connection.execute(sql, params).fetchall()
+            if rows:
+                files_found_by_name.add(basename)
+            _add_rows(rows)
+
+        # Text-content fallback: for each class name whose inferred filename had no DB hit,
+        # search artifacts whose text contains the class name and whose path is a source file.
+        for cls in dict.fromkeys(class_names_for_text_fallback):
+            inferred = {f"{cls.lower()}{ext}" for ext in all_exts}
+            if inferred & files_found_by_name:
+                continue  # filename lookup already found this class
+            params_t: List[Any] = [user_tier, f"%{cls}%"] + repo_params
+            sql_t = (
+                f"SELECT * FROM artifacts WHERE tier <= ? AND text LIKE ?{repo_sql}"
+                " AND (LOWER(file_path) LIKE '%.cpp' OR LOWER(file_path) LIKE '%.h'"
+                " OR LOWER(file_path) LIKE '%.py'){kind_order}".format(kind_order=kind_order)
+            )
+            rows = self._connection.execute(sql_t, params_t).fetchall()
+            # Cap text-fallback results more aggressively — they're lower-confidence.
+            text_file_counts: Dict[str, int] = {}
+            for row in rows:
+                fp = row["file_path"]
+                if text_file_counts.get(fp, 0) >= 2:
+                    continue
+                text_file_counts[fp] = text_file_counts.get(fp, 0) + 1
+                if row["id"] in seen_ids:
+                    continue
+                if file_counts.get(fp, 0) >= max_per_file:
+                    continue
+                seen_ids.add(row["id"])
+                file_counts[fp] = file_counts.get(fp, 0) + 1
+                item = self._row_to_dict(row)
+                item["score"] = 1.0
+                # Weaker signal than filename match — text content may be coincidental.
+                item["_text_match"] = True
+                results.append(item)
+
+        return results
 
     def _select_allowed_artifacts(
         self,

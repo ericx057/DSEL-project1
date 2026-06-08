@@ -347,10 +347,10 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q43
-**Query**: What function does `XMLWriter::writeElement` call to escape XML special characters?
+**Query**: What function does `ZipWriter::writeFiles` call on each file entry to stream content into the ZIP archive in `Writer.cpp`?
 **Expected files**:
-- `src/Base/XMLWriter.cpp`
-**Hops**: writeElement → encodeXML
+- `src/Base/Writer.cpp`
+**Hops**: writeFiles → FileEntry → stream write
 **Difficulty**: 1
 
 ### Q44
@@ -588,10 +588,10 @@ serialization, and algorithmic internals.
 **Difficulty**: 2
 
 ### Q74
-**Query**: How does `XMLReader::readElement` advance the XML parser to the next matching element?
+**Query**: How does `XMLReader::readElement` in `Reader.cpp` advance the SAX parser to find the next matching start element?
 **Expected files**:
-- `src/Base/XMLReader.cpp`
-**Hops**: readElement → while !isStartElement → reader.next
+- `src/Base/Reader.cpp`
+**Hops**: readElement → while !isStartElement(tag) → reader.next()
 **Difficulty**: 1
 
 ### Q75
@@ -977,10 +977,10 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q124
-**Query**: Which pure virtual methods does `UnifiedStore` define that `SQLiteUnifiedStore` must implement?
+**Query**: Which pure virtual methods does the `Property` base class define that concrete property types like `PropertyString` must implement?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: UnifiedStore → vector_search, graph_search abstract methods
+- `src/App/Property.h`
+**Hops**: Property → virtual Save, Restore, getTypeId abstract interface
 **Difficulty**: 1
 
 ### Q125
@@ -1108,25 +1108,25 @@ serialization, and algorithmic internals.
 **Difficulty**: 2
 
 ### Q141
-**Query**: How does `HybridSearcher` use `UnifiedStore` as a composition dependency rather than inheritance?
+**Query**: How does `FeaturePython` use `DocumentObject` as its base and add Python-scripting capabilities through composition?
 **Expected files**:
-- `src/retrieval/hybrid.py`
-- `src/retrieval/database.py`
-**Hops**: HybridSearcher has self.store: UnifiedStore → calls vector_search, graph_search
+- `src/App/FeaturePython.h`
+- `src/App/DocumentObject.h`
+**Hops**: FeaturePython : DocumentObject → has _pcFeaturePy proxy
 **Difficulty**: 1
 
 ### Q142
-**Query**: What base class does `SQLiteUnifiedStore` extend to satisfy the retrieval interface?
+**Query**: What base class does `MainWindow` extend and which Qt interface does that give it for docking and toolbars?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: SQLiteUnifiedStore → UnifiedStore → vector_search, graph_search implementations
+- `src/Gui/MainWindow.h`
+**Hops**: MainWindow : QMainWindow → addDockWidget, addToolBar interface
 **Difficulty**: 1
 
 ### Q143
-**Query**: Where is `ArtifactRecord` defined and which fields does it expose to the indexer?
+**Query**: Where is the `Command` base class defined and which pure virtual method must every FreeCAD command implement?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: ArtifactRecord dataclass → artifact_id, repository, file_path, language, text, tier
+- `src/Gui/Command.h`
+**Hops**: Command → virtual activated(int iMsg) = 0
 **Difficulty**: 1
 
 ### Q144
@@ -1202,10 +1202,10 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q153
-**Query**: What format does `XMLWriter::writeElement` use to emit a tagged value into the document stream?
+**Query**: What format does `XMLReader::getAttribute` use to retrieve a typed attribute value from the current element in `Reader.cpp`?
 **Expected files**:
-- `src/Base/XMLWriter.cpp`
-**Hops**: writeElement → "<tag>val</tag>" via encodeXML
+- `src/Base/Reader.cpp`
+**Hops**: getAttribute → reader.attributeValue(name) → convert to T
 **Difficulty**: 1
 
 ### Q154
@@ -1225,10 +1225,10 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q156
-**Query**: What XML header does `XMLWriter` write at construction time before any elements?
+**Query**: How does `ZipWriter` in `Writer.cpp` open and manage the compressed output stream before writing file entries?
 **Expected files**:
-- `src/Base/XMLWriter.cpp`
-**Hops**: XMLWriter ctor → "<?xml version='1.0'..." → "<Document SchemaVersion=4>"
+- `src/Base/Writer.cpp`
+**Hops**: ZipWriter ctor → open ZipFile → writeFiles loop
 **Difficulty**: 1
 
 ### Q157
@@ -1261,10 +1261,10 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q161
-**Query**: How does `XMLReader::getAttributeAsInteger` convert a string attribute to an integer?
+**Query**: How does `XMLReader::getAttribute<int>` in `Reader.cpp` convert a string attribute value to an integer?
 **Expected files**:
-- `src/Base/XMLReader.cpp`
-**Hops**: getAttributeAsInteger → getAttribute → std::stoi
+- `src/Base/Reader.cpp`
+**Hops**: getAttribute<int> → template specialisation → atoi / std::stoi
 **Difficulty**: 1
 
 ### Q162
@@ -1343,10 +1343,10 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q172
-**Query**: What does `XMLReader::readElement` loop over while advancing to the target tag?
+**Query**: What does `XMLReader::readElement` loop over while advancing to the target tag in `Reader.cpp`?
 **Expected files**:
-- `src/Base/XMLReader.cpp`
-**Hops**: readElement → while !isStartElement(tag) → reader.next()
+- `src/Base/Reader.cpp`
+**Hops**: readElement → while !isStartElement(ElementName) → reader.next()
 **Difficulty**: 1
 
 ### Q173
@@ -1378,10 +1378,10 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q177
-**Query**: How does `XMLWriter::writeAttribute` embed a named attribute in the XML output?
+**Query**: How does `XMLReader::doNameMapping` in `Reader.cpp` remap legacy element names during deserialization?
 **Expected files**:
-- `src/Base/XMLWriter.cpp`
-**Hops**: writeAttribute → *ofs << " " name "=" encodeXML(val)
+- `src/Base/Reader.cpp`
+**Hops**: doNameMapping → nameMapping map lookup → substitute old name with new
 **Difficulty**: 1
 
 ### Q178
@@ -1431,38 +1431,39 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q184
-**Query**: What data does `SQLiteUnifiedStore::upsert_artifacts` write to the SQLite database?
+**Query**: How does `Document::saveToFile` in `Document.cpp` coordinate writing all `DocumentObject` states via the `Writer` class?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: upsert_artifacts → INSERT INTO artifacts → id, repository, file_path, text, embedding
-**Difficulty**: 1
+- `src/App/Document.cpp`
+- `src/Base/Writer.cpp`
+**Hops**: saveToFile → ZipWriter → each object Persistence::Save → writer stream
+**Difficulty**: 2
 
 ### Q185
-**Query**: How does `HashingEmbeddingProvider::embed` convert text into a fixed-dimension vector?
+**Query**: How does `GCS::solve_DL` in `GCS.cpp` implement the Dog-Leg trust-region step for constraint solving?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: embed → tokenize → sha256 per token → sparse vector → normalize
-**Difficulty**: 1
+- `src/Mod/Sketcher/App/planegcs/GCS.cpp`
+**Hops**: solve_DL → compute Cauchy point → Dog-Leg step → update trust radius
+**Difficulty**: 2
 
 ### Q186
-**Query**: How does `SQLiteUnifiedStore::vector_search` compute cosine similarity between query and artifact embeddings?
+**Query**: How does `GCS::solve` in `GCS.cpp` select between the BFGS, LM, and Dog-Leg algorithms?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: vector_search → embed(query) → _cosine(query_embedding, row_embedding)
+- `src/Mod/Sketcher/App/planegcs/GCS.cpp`
+**Hops**: solve → switch Algorithm → solve_BFGS / solve_LM / solve_DL
 **Difficulty**: 1
 
 ### Q187
-**Query**: What does `HybridSearcher::search` do when `lambda_ratio` is exactly 0.5?
+**Query**: What scoring does `SelectionSingleton::checkSelection` in `Selection.cpp` use to validate a picked object?
 **Expected files**:
-- `src/retrieval/hybrid.py`
-**Hops**: search → both vector_search and graph_search → interleave results
+- `src/Gui/Selection/Selection.cpp`
+**Hops**: checkSelection → resolveObject → filter by type mask → return score
 **Difficulty**: 1
 
 ### Q188
-**Query**: How does `LexicalReranker` in `reranker.py` reorder candidates after initial retrieval?
+**Query**: How does `SelectionSingleton::getCompleteSelection` in `Selection.cpp` resolve sub-element references for the caller?
 **Expected files**:
-- `src/retrieval/reranker.py`
-**Hops**: rerank → keyword overlap scoring → sort → top_m
+- `src/Gui/Selection/Selection.cpp`
+**Hops**: getCompleteSelection → iterate _SelList → resolve SubName → SelObj list
 **Difficulty**: 1
 
 ### Q189
@@ -1509,10 +1510,10 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q195
-**Query**: How does `XMLReader::getAttribute` retrieve a named attribute from the current XML element?
+**Query**: How does `XMLReader::getAttributeCount` in `Reader.cpp` report the number of attributes on the current element?
 **Expected files**:
-- `src/Base/XMLReader.cpp`
-**Hops**: getAttribute → reader.attributeValue(name).toStdString()
+- `src/Base/Reader.cpp`
+**Hops**: getAttributeCount → reader.attributeCount()
 **Difficulty**: 1
 
 ### Q196
@@ -1523,10 +1524,11 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q197
-**Query**: How does `RepositoryIndexer` in `indexer.py` break source files into artifact records?
+**Query**: How does `Document::restore` in `Document.cpp` reconstruct all `DocumentObject` instances from a saved ZIP file?
 **Expected files**:
-- `src/ingestion/indexer.py`
-**Hops**: index_repository → parse → chunk → ArtifactRecord → upsert_artifacts
+- `src/App/Document.cpp`
+- `src/Base/Reader.cpp`
+**Hops**: restore → XMLReader readElement per object → Persistence::Restore → object state
 **Difficulty**: 2
 
 ### Q198
@@ -1624,31 +1626,32 @@ serialization, and algorithmic internals.
 **Difficulty**: 2
 
 ### Q210
-**Query**: How does `HybridSearcher::search` blend vector results and graph results using `lambda_ratio`?
+**Query**: How does `GCS::diagnose` in `GCS.cpp` detect redundant and conflicting constraints using Eigen decomposition?
 **Expected files**:
-- `src/retrieval/hybrid.py`
-**Hops**: search → vector_slots = lambda_ratio * len(v_res) → interleave v+g results
-**Difficulty**: 1
+- `src/Mod/Sketcher/App/planegcs/GCS.cpp`
+- `src/Mod/Sketcher/App/planegcs/GCS.h`
+**Hops**: diagnose → QR decomposition → identify redundant rows → populate redundantTags
+**Difficulty**: 2
 
 ### Q211
-**Query**: What hash function does `HashingEmbeddingProvider::embed` use per token to build the vector?
+**Query**: What data structure does `GCS::System` in `GCS.h` use to track redundant constraint tags after diagnosis?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: embed → sha256 per token → index from digest[:4] → sign from digest[4]
+- `src/Mod/Sketcher/App/planegcs/GCS.h`
+**Hops**: System → redundantTags VEC_I → populated by diagnose → used by getRedundant
 **Difficulty**: 2
 
 ### Q212
-**Query**: How does `SQLiteUnifiedStore::graph_search` perform BFS from anchor artifacts along graph edges?
+**Query**: How does `TopoShape::analyze` in `TopoShape.cpp` perform BRep validity checking using OpenCASCADE?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: graph_search → _find_anchor_ids → BFS queue → _outgoing_edges
+- `src/Mod/Part/App/TopoShape.cpp`
+**Hops**: analyze → BRepCheck_Analyzer → runBopCheck flag → stream diagnostic output
 **Difficulty**: 2
 
 ### Q213
-**Query**: What scoring formula does `SQLiteUnifiedStore::vector_search` use to combine cosine and keyword scores?
+**Query**: What formula does `TopoShape::common` in `TopoShape.cpp` use to compute the Boolean intersection of two shapes?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: vector_search → cosine + keyword_score (0.05 per term) → sort
+- `src/Mod/Part/App/TopoShape.cpp`
+**Hops**: common → BRepAlgoAPI_Common → TopoDS_Shape result
 **Difficulty**: 1
 
 ### Q214
@@ -1708,10 +1711,10 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q222
-**Query**: What edge-priority ordering does `SQLiteUnifiedStore::_outgoing_edges` use for BFS traversal?
+**Query**: What edge-priority ordering does `PropertyLinkBase::_getLinksTo` in `PropertyLinks.cpp` use when collecting object identifiers?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: _outgoing_edges → priority dict {calls:0, defines:1, imports:2, ...} → sort
+- `src/App/PropertyLinks.cpp`
+**Hops**: _getLinksTo → iterate link sub-elements → collect ObjectIdentifier entries
 **Difficulty**: 2
 
 ### Q223
@@ -1722,11 +1725,12 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q224
-**Query**: What does `HashingEmbeddingProvider._tokens` use to tokenize text for embedding?
+**Query**: What tokenization rule does `GCS::System` use to split constraint parameters before building the Jacobian matrix?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: _tokens → re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text.lower())
-**Difficulty**: 1
+- `src/Mod/Sketcher/App/planegcs/GCS.cpp`
+- `src/Mod/Sketcher/App/planegcs/GCS.h`
+**Hops**: System params → VEC_pD → pointer vector → Jacobian column assembly
+**Difficulty**: 2
 
 ### Q225
 **Query**: How does `Sketch::solve` decide whether to report redundant constraints vs. convergence failure?
@@ -1758,11 +1762,11 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q229
-**Query**: What normalization step does `HashingEmbeddingProvider::embed` apply to the raw vector?
+**Query**: What normalization step does `GCS::solve_BFGS` in `GCS.cpp` apply to the gradient vector before each line search?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: embed → norm = sqrt(sum(v^2)) → [v/norm for v in vector]
-**Difficulty**: 1
+- `src/Mod/Sketcher/App/planegcs/GCS.cpp`
+**Hops**: solve_BFGS → gradient norm → scale step → Wolfe conditions check
+**Difficulty**: 2
 
 ### Q230
 **Query**: How does `GCS::MaxIterations` bound the number of solver iterations in `solve_DL`?
@@ -1773,17 +1777,17 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q231
-**Query**: How does `HybridSearcher` handle the case where `lambda_ratio == 1.0` (pure vector search)?
+**Query**: How does `GCS::solve` handle the case where no subsystem constraints exist (pure vector of free parameters)?
 **Expected files**:
-- `src/retrieval/hybrid.py`
-**Hops**: search → if lambda_ratio == 1.0 → return store.vector_search only
+- `src/Mod/Sketcher/App/planegcs/GCS.cpp`
+**Hops**: solve → if subsys empty → return Success immediately
 **Difficulty**: 1
 
 ### Q232
-**Query**: What distance metric does `SQLiteUnifiedStore::_cosine` compute between two embedding vectors?
+**Query**: What distance metric does `TopoShape::analyze` use to classify degenerate edges in the BRep structure?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: _cosine → dot product (assumes pre-normalized vectors)
+- `src/Mod/Part/App/TopoShape.cpp`
+**Hops**: analyze → BRepCheck_Edge → check degeneracy → length threshold
 **Difficulty**: 1
 
 ### Q233
@@ -1794,10 +1798,10 @@ serialization, and algorithmic internals.
 **Difficulty**: 2
 
 ### Q234
-**Query**: What algorithm does `PromptAssembler::_u_shape_order` use to arrange context chunks?
+**Query**: What algorithm does `SelectionSingleton::getAsPropertyLinkSubList` in `Selection.cpp` use to pack selected objects into a link property?
 **Expected files**:
-- `src/retrieval/assembler.py`
-**Hops**: _u_shape_order → even indices left, odd indices right reversed → U-shape
+- `src/Gui/Selection/Selection.cpp`
+**Hops**: getAsPropertyLinkSubList → iterate selection → group SubNames per object → set prop
 **Difficulty**: 1
 
 ### Q235
@@ -1809,11 +1813,11 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q236
-**Query**: How does `SQLiteUnifiedStore::_signal_terms` filter stopwords before keyword matching?
+**Query**: How does `PropertyXLink::checkRestore` in `PropertyLinks.cpp` validate a cross-document link after file load?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: _signal_terms → QUERY_STOPWORDS set → exclude terms ≤ 1 char
-**Difficulty**: 1
+- `src/App/PropertyLinks.cpp`
+**Hops**: checkRestore → find linked document → resolve object by name → check still valid
+**Difficulty**: 2
 
 ### Q237
 **Query**: What does `SubSystem::fillParams` do to prepare the initial parameter vector for optimization?
@@ -1858,11 +1862,11 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q243
-**Query**: How does `SQLiteUnifiedStore::graph_search` limit the BFS to `breadth` total artifacts?
+**Query**: How does `GCS::diagnose` in `GCS.cpp` limit the constraint analysis to a bounded number of singular values?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: graph_search → while queue and len(ordered_ids) < breadth
-**Difficulty**: 1
+- `src/Mod/Sketcher/App/planegcs/GCS.cpp`
+**Hops**: diagnose → Eigen SVD → threshold singular values → count DOFs
+**Difficulty**: 2
 
 ### Q244
 **Query**: What OCCT BRep builder is used in `TopoShape::read` to reconstruct a shape from stream data?
@@ -1872,11 +1876,11 @@ serialization, and algorithmic internals.
 **Difficulty**: 1
 
 ### Q245
-**Query**: How does `HashingEmbeddingProvider` handle the zero-norm edge case in `embed`?
+**Query**: How does `GCS::solve_LM` in `GCS.cpp` handle the case where the Levenberg-Marquardt damping factor reaches its maximum?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: embed → if norm == 0 → return vector (no division)
-**Difficulty**: 1
+- `src/Mod/Sketcher/App/planegcs/GCS.cpp`
+**Hops**: solve_LM → lambda threshold → divergence detected → return Failed
+**Difficulty**: 2
 
 ### Q246
 **Query**: What role does `SubSystem::getResiduals` play in the LM iteration of `GCS::solve_LM`?
@@ -1895,10 +1899,10 @@ serialization, and algorithmic internals.
 **Difficulty**: 2
 
 ### Q248
-**Query**: What BFS traversal order does `SQLiteUnifiedStore::graph_search` use when multiple anchors exist?
+**Query**: What traversal order does `PropertyLinkBase::_getLinksTo` in `PropertyLinks.cpp` use when multiple sub-elements reference the same object?
 **Expected files**:
-- `src/retrieval/database.py`
-**Hops**: graph_search → queue [(anchor, 0)] → pop front → BFS level-order
+- `src/App/PropertyLinks.cpp`
+**Hops**: _getLinksTo → iterate sub-list → deduplicate by ObjectIdentifier path
 **Difficulty**: 2
 
 ### Q249
@@ -1910,8 +1914,9 @@ serialization, and algorithmic internals.
 **Difficulty**: 2
 
 ### Q250
-**Query**: How does the `PromptAssembler::assemble` method in `assembler.py` build the final LLM prompt from retrieved chunks?
+**Query**: How does `SelectionSingleton::countObjectsOfType` in `Selection.cpp` filter the selection list to a specific `Base::Type`?
 **Expected files**:
-- `src/retrieval/assembler.py`
-**Hops**: assemble → system_rule + context chunks (_u_shape_order) + Query line
+- `src/Gui/Selection/Selection.cpp`
+**Hops**: countObjectsOfType → iterate _SelList → isDerivedFrom(type) → count matches
 **Difficulty**: 1
+

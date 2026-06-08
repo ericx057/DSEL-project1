@@ -66,7 +66,7 @@ def load_retrieval(db_path: Path):
 
 
 def retrieve(query: str, searcher, reranker, top_k: int) -> List[str]:
-    hits   = searcher.search(query, user_tier=1)
+    hits   = searcher.search(query, user_tier=3)
     ranked = reranker.rerank(query, hits, top_m=top_k)
     return [h["file_path"] for h in ranked]
 
