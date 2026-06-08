@@ -3,11 +3,12 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import threading
 import tkinter as tk
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
@@ -39,6 +40,150 @@ DEMO_Q = [
     "Trace the call from App::Document::save() through Part topology "
     "serialization to the final FCStd container format.",
 ]
+
+
+# ── LLM answer generator ────────────────────────────────────────────────────────
+
+_SYSTEM_PROMPT = (
+    "You are a FreeCAD codebase expert. "
+    "Using only the retrieved code snippets provided, answer the question "
+    "concisely and technically. Reference specific functions, classes, or "
+    "files where relevant. Do not speculate beyond what the code shows."
+)
+_MAX_TOKENS    = 800
+_SNIPPET_CHARS = 1000
+
+
+def _build_context(hits: List[Dict[str, Any]]) -> str:
+    parts: List[str] = []
+    for i, h in enumerate(hits[:5], 1):
+        fp   = h.get("file_path", "")
+        sym  = h.get("symbol_name") or ""
+        text = (h.get("text") or "").strip()
+        ls, le = h.get("line_start", 0), h.get("line_end", 0)
+        loc  = f" L{ls}–{le}" if ls else ""
+        header = f"[{i}] {fp}{loc}" + (f"  ({sym})" if sym else "")
+        if text:
+            parts.append(f"{header}\n```\n{text[:_SNIPPET_CHARS]}\n```")
+        else:
+            parts.append(header)
+    return "\n\n".join(parts)
+
+
+class LLMAnswerGenerator:
+    """Streams a natural-language answer from Claude Haiku given retrieved snippets."""
+
+    _MODEL = "claude-haiku-4-5-20251001"
+
+    def __init__(self):
+        self._client = None
+        try:
+            import anthropic
+            self._client = anthropic.Anthropic()
+        except Exception as exc:
+            print(f"[demo] Anthropic LLM unavailable: {exc}", file=sys.stderr)
+
+    @property
+    def ready(self) -> bool:
+        return self._client is not None
+
+    def stream(
+        self,
+        query: str,
+        hits: List[Dict[str, Any]],
+        on_token: Callable[[str], None],
+        on_done: Callable[[Optional[str]], None],
+    ) -> None:
+        if not self.ready:
+            on_done("(Set ANTHROPIC_API_KEY to enable LLM answers.)")
+            return
+        context = _build_context(hits)
+        prompt  = f"Retrieved code:\n{context}\n\nQuestion: {query}"
+        try:
+            import anthropic
+            with self._client.messages.stream(
+                model=self._MODEL,
+                max_tokens=_MAX_TOKENS,
+                system=_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": prompt}],
+            ) as s:
+                for chunk in s.text_stream:
+                    on_token(chunk)
+            on_done(None)
+        except anthropic.AuthenticationError:
+            on_done("\n\n[Auth error — check ANTHROPIC_API_KEY]")
+        except Exception as exc:
+            on_done(f"\n\n[LLM error: {exc}]")
+
+
+class OpenAIAnswerGenerator:
+    """Streams a natural-language answer from OpenAI (gpt-4o-mini) given retrieved snippets."""
+
+    _MODEL = "gpt-4o-mini"
+
+    def __init__(self):
+        self._client = None
+        try:
+            import openai
+            self._client = openai.OpenAI()
+        except Exception as exc:
+            print(f"[demo] OpenAI LLM unavailable: {exc}", file=sys.stderr)
+
+    @property
+    def ready(self) -> bool:
+        return self._client is not None
+
+    def stream(
+        self,
+        query: str,
+        hits: List[Dict[str, Any]],
+        on_token: Callable[[str], None],
+        on_done: Callable[[Optional[str]], None],
+    ) -> None:
+        if not self.ready:
+            on_done("(Set OPENAI_API_KEY to enable OpenAI answers.)")
+            return
+        context = _build_context(hits)
+        prompt  = f"Retrieved code:\n{context}\n\nQuestion: {query}"
+        try:
+            with self._client.chat.completions.create(
+                model=self._MODEL,
+                max_tokens=_MAX_TOKENS,
+                stream=True,
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user",   "content": prompt},
+                ],
+            ) as stream:
+                for event in stream:
+                    delta = event.choices[0].delta.content
+                    if delta:
+                        on_token(delta)
+            on_done(None)
+        except Exception as exc:
+            on_done(f"\n\n[OpenAI error: {exc}]")
+
+
+def _pick_llm() -> "LLMAnswerGenerator | OpenAIAnswerGenerator":
+    """Return the first available LLM backend.
+
+    DSEL_LLM_BACKEND=anthropic|openai overrides auto-detection.
+    Without that env var, prefer Anthropic if its key is set, else OpenAI.
+    """
+    backend = os.environ.get("DSEL_LLM_BACKEND", "").lower()
+    if backend == "openai":
+        return OpenAIAnswerGenerator()
+    if backend == "anthropic":
+        return LLMAnswerGenerator()
+    # Auto: try whichever key is present
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        gen = LLMAnswerGenerator()
+        if gen.ready:
+            return gen
+    gen = OpenAIAnswerGenerator()
+    if gen.ready:
+        return gen
+    return LLMAnswerGenerator()   # will surface the error message on first use
 
 
 # ── Retrieval engine ────────────────────────────────────────────────────────────
@@ -74,6 +219,7 @@ class RetrievalEngine:
 class SpotlightDemo:
     def __init__(self, auto_query: Optional[str] = None):
         self.engine      = RetrievalEngine()
+        self._llm        = _pick_llm()
         self._busy       = False
         self._expanded   = False
         self._anim_step  = 0
@@ -277,11 +423,49 @@ class SpotlightDemo:
 
     def _worker(self, query: str):
         hits = self.engine.search(query, top_k=8)
-        self.root.after(0, self._finish, hits)
+        self.root.after(0, self._on_hits, query, hits)
 
-    def _finish(self, hits: List[Dict[str, Any]]):
+    def _on_hits(self, query: str, hits: List[Dict[str, Any]]):
         self._render_files(hits)
-        self._write_response(self._synthesize(hits))
+        if not hits:
+            self._write_response(
+                "No indexed artifacts matched.\n\n"
+                "Build the corpus first:\n"
+                "  python3 evaluation/build_freecad_corpus.py"
+            )
+            self._entry.configure(state=tk.NORMAL)
+            self._busy = False
+            return
+        if self._llm.ready:
+            self._write_response("Generating answer…\n")
+            threading.Thread(
+                target=self._llm.stream,
+                args=(query, hits, self._on_token, self._on_llm_done),
+                daemon=True,
+            ).start()
+        else:
+            self._write_response(self._synthesize(hits))
+            self._entry.configure(state=tk.NORMAL)
+            self._busy = False
+
+    def _on_token(self, token: str):
+        self.root.after(0, self._append_response, token)
+
+    def _append_response(self, token: str):
+        self._resp.configure(state=tk.NORMAL)
+        # Clear the "Generating answer…" placeholder on first real token
+        if self._resp.get("1.0", tk.END).strip() == "Generating answer…":
+            self._resp.delete("1.0", tk.END)
+        self._resp.insert(tk.END, token)
+        self._resp.see(tk.END)
+        self._resp.configure(state=tk.DISABLED)
+
+    def _on_llm_done(self, error: Optional[str]):
+        if error:
+            self.root.after(0, self._append_response, error)
+        self.root.after(0, self._stream_finished)
+
+    def _stream_finished(self):
         self._entry.configure(state=tk.NORMAL)
         self._busy = False
 
