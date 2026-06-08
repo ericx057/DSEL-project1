@@ -80,10 +80,8 @@ class SpotlightDemo:
         self._dx = self._dy = 0
 
         self.root = tk.Tk()
-        self.root.overrideredirect(True)
         self.root.configure(bg=BORDER)
-        if sys.platform == "darwin":
-            self.root.attributes("-alpha", 0.96)
+        self._setup_window_style()
 
         sw = self.root.winfo_screenwidth()
         sh = self.root.winfo_screenheight()
@@ -103,20 +101,48 @@ class SpotlightDemo:
         self._entry.bind("<Return>",   lambda _: self._submit())
         self._entry.bind("<KP_Enter>", lambda _: self._submit())
 
-        # Drag: bind to every widget in the bar except the entry itself
+        # Clicking anywhere non-interactive restores entry focus
+        self._main.bind_all("<Button-1>", self._refocus_entry)
+
         self._make_draggable(self._bar)
 
-        # overrideredirect windows on macOS need explicit activation sequence
-        self.root.update_idletasks()
-        self.root.withdraw()
-        self.root.deiconify()
-        self.root.lift()
-        self.root.focus_force()
-        self.root.after(100, self._entry.focus_force)
+        self._activate()
         self.root.after(150, lambda: self._make_draggable(self._bar))
 
         if auto_query:
             self.root.after(400, lambda: self._fire(auto_query))
+
+    # ── Window setup (platform-specific) ────────────────────────────────────────
+
+    def _setup_window_style(self):
+        if sys.platform == "darwin":
+            # MacWindowStyle "plain" removes the title bar chrome while keeping
+            # the window as a proper macOS citizen — keyboard routing works.
+            try:
+                self.root.tk.call(
+                    "::tk::unsupported::MacWindowStyle", "style",
+                    self.root._w, "plain", "",
+                )
+            except Exception:
+                self.root.overrideredirect(True)
+            self.root.attributes("-alpha", 0.96)
+        else:
+            # Windows / Linux: overrideredirect works fine for borderless windows
+            self.root.overrideredirect(True)
+            if sys.platform == "win32":
+                # Keep window in taskbar so user can alt-tab back
+                self.root.attributes("-toolwindow", False)
+
+    def _activate(self):
+        """Bring window to front and route keyboard to the entry."""
+        self.root.update_idletasks()
+        self.root.lift()
+        self.root.after(80,  self.root.lift)
+        self.root.after(120, self._entry.focus_force)
+
+    def _refocus_entry(self, event):
+        if not isinstance(event.widget, (tk.Entry, tk.Text, tk.Scrollbar)):
+            self.root.after(10, self._entry.focus_force)
 
     # ── Search bar ──────────────────────────────────────────────────────────────
 
