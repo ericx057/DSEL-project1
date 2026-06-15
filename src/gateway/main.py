@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, Header, Query
 from fastapi.responses import Response, StreamingResponse
 
 from src.retrieval.assembler import PromptAssembler
+from src.retrieval.context_summary import ResponseShaper
 from src.retrieval.database import UnifiedStore
 from src.retrieval.hybrid import HybridSearcher
 from src.retrieval.reranker import LexicalReranker
@@ -211,6 +212,7 @@ def create_app(
         history: Optional[UserHistoryRepository] = Depends(get_history_repo),
     ):
         start_time = time.time()
+        response_shaper = ResponseShaper()
         user = iam.decode_token(authorization)
         rate_limit.check_circuit_breaker()
         await rate_limit.check_rate_limit(user.id)
@@ -236,6 +238,7 @@ def create_app(
 
         cached_response = await cache.get_cached_response(request.query, tier, scopes)
         if cached_response:
+            shaped_response = response_shaper.shape(cached_response)
             await audit.log(
                 AuditEvent(
                     user_id=user.id,
@@ -248,13 +251,13 @@ def create_app(
                     rbac_blocked=False,
                 )
             )
-            return {"response": cached_response, "cached": True}
+            return {"response": shaped_response, "cached": True}
 
         acquired = await cache.acquire_lock(request.query, tier, scopes)
         if not acquired:
             async def subscriber_stream() -> AsyncGenerator[str, None]:
                 async for chunk in cache.subscribe(request.query, tier, scopes):
-                    yield chunk
+                    yield response_shaper.shape(chunk)
             return StreamingResponse(subscriber_stream(), media_type="text/event-stream")
 
         prompt = _build_prompt(request.query, tier, scopes, store)
@@ -265,10 +268,10 @@ def create_app(
             try:
                 async for chunk in selected_model_hook.generate_stream(prompt):
                     full_response.append(chunk)
-                    await cache.publish(request.query, tier, scopes, chunk)
-                    yield chunk
 
-                final_text = "".join(full_response)
+                final_text = response_shaper.shape("".join(full_response))
+                await cache.publish(request.query, tier, scopes, final_text)
+                yield final_text
                 await cache.set_cached_response(request.query, tier, scopes, final_text)
                 if history is not None:
                     await history.add_record(

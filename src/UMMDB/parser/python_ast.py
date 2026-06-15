@@ -182,7 +182,7 @@ class _CallVisitor(ast.NodeVisitor):
 
     def _append_name(self, name: str) -> None:
         candidates = [name]
-        if "." in name:
+        if name.startswith(("self.", "cls.")):
             candidates.append(name.split(".")[-1])
         for candidate in candidates:
             if candidate not in self.calls:

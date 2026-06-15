@@ -166,8 +166,8 @@ class RepositoryIndexer:
         file_path: Path,
     ) -> Tuple[List[ArtifactRecord], List[GraphEdgeRecord], Optional[str]]:
         relative_path = file_path.relative_to(root).as_posix()
-        language = self._detect_language(file_path)
         content = file_path.read_text(encoding="utf-8")
+        language = self._detect_language(file_path, content)
         if self._is_generated(content):
             return [
                 ArtifactRecord(
@@ -601,6 +601,9 @@ class RepositoryIndexer:
             return "module"
         qualified_name = RepositoryIndexer._chunk_qualified_name(chunk)
         if qualified_name:
+            signature_hash = chunk.metadata.get("signature_hash")
+            if isinstance(signature_hash, str) and signature_hash:
+                return f"{qualified_name}#{signature_hash}"
             return qualified_name
         if chunk.symbol_name:
             return chunk.symbol_name
@@ -631,10 +634,9 @@ class RepositoryIndexer:
                     return qualified_ids[scoped_reference]
 
         if "." in reference:
-            short_reference = reference.split(".")[-1]
-            candidates = short_name_ids.get(short_reference, set())
-        else:
-            candidates = short_name_ids.get(reference, set())
+            return None
+
+        candidates = short_name_ids.get(reference, set())
         if len(candidates) == 1:
             return next(iter(candidates))
         return None
@@ -671,8 +673,10 @@ class RepositoryIndexer:
         return f"{repository}:{relative_path}:{safe_symbol}:T{tier}"
 
     @staticmethod
-    def _detect_language(path: Path) -> str:
+    def _detect_language(path: Path, content: str = "") -> str:
         suffix = path.suffix.lower()
+        if suffix == ".h" and RepositoryIndexer._looks_like_cpp_header(content):
+            return "cpp"
         mapping = {
             ".json": "json",
             ".py": "python",
@@ -693,6 +697,11 @@ class RepositoryIndexer:
             return mapping[suffix]
         guessed, _ = mimetypes.guess_type(path.name)
         return guessed or "text"
+
+    @staticmethod
+    def _looks_like_cpp_header(content: str) -> bool:
+        sample = content[:8192]
+        return bool(re.search(r"\b(class|namespace|template)\b|::|\b(public|private|protected):", sample))
 
     @classmethod
     def _is_json_document(cls, path: Path, content: str) -> bool:

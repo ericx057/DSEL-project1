@@ -306,3 +306,53 @@ def test_repository_indexer_indexes_cpp_methods_as_symbols(tmp_path: Path):
         if item["kind"] in {"method", "method-implementation"}
     }
     assert {"getEdges", "getVertexes", "getWires"} <= method_symbols
+
+
+def test_repository_indexer_does_not_resolve_external_dotted_python_call_to_local_leaf(tmp_path: Path):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    (repo / "app.py").write_text(
+        "\n".join(
+            [
+                "import json",
+                "",
+                "def dumps(value):",
+                "    return 'local'",
+                "",
+                "def encode(value):",
+                "    return json.dumps(value)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+
+    RepositoryIndexer(store).index_repository("repo-a", repo)
+
+    edges = store.list_edges(user_tier=3, repo_scope=["repo-a"], relationship="calls")
+    assert not any(edge["source_id"].endswith(":encode:T1") and edge["target_id"].endswith(":dumps:T1") for edge in edges)
+
+
+def test_repository_indexer_detects_cpp_header_from_content(tmp_path: Path):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    (repo / "Shape.h").write_text(
+        "\n".join(
+            [
+                "namespace geom {",
+                "class Shape {",
+                "public:",
+                "    void draw() const;",
+                "};",
+                "}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+
+    RepositoryIndexer(store).index_repository("repo-a", repo)
+
+    artifacts = store.list_artifacts(user_tier=3, repo_scope=["repo-a"])
+    class_artifact = next(item for item in artifacts if item["symbol_name"] == "Shape" and item["kind"] == "class")
+    assert class_artifact["language"] == "cpp"

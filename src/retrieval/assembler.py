@@ -1,8 +1,11 @@
 from typing import List, Dict, Any
 
+from src.retrieval.context_summary import RetrievedContextSummarizer
+
 class PromptAssembler:
-    def __init__(self, system_rule: str = None):
+    def __init__(self, system_rule: str = None, summarizer: RetrievedContextSummarizer | None = None):
         self.system_rule = system_rule
+        self.summarizer = summarizer or RetrievedContextSummarizer()
 
     def _u_shape_order(self, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         left = []
@@ -20,15 +23,9 @@ class PromptAssembler:
             parts.append(self.system_rule)
             
         if chunks:
-            parts.append("Context:")
             ordered_chunks = self._u_shape_order(chunks)
-            for chunk in ordered_chunks:
-                fp = chunk.get("file_path")
-                lang = chunk.get("language")
-                tier = chunk.get("tier")
-                text = chunk.get("text", "")
-                parts.append(f"--- File: {fp} | Language: {lang} | Tier: {tier} ---")
-                parts.append(text)
+            parts.append("Retrieved summaries:")
+            parts.append(self.summarizer.summarize_chunks(ordered_chunks))
                 
         parts.append(f"Query: {query}")
         return "\n".join(parts)

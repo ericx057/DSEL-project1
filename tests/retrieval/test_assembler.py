@@ -29,16 +29,35 @@ def test_u_shape_order_even():
 def test_assemble_prompt():
     assembler = PromptAssembler("System rule.")
     chunks = [
-        {"id": "1", "text": "Content 1", "file_path": "a.py", "language": "python", "tier": 0},
-        {"id": "2", "text": "Content 2", "file_path": "b.py", "language": "python", "tier": 1},
+        {
+            "id": "1",
+            "text": "def save_document():\n    write_objects()",
+            "file_path": "src/app/a.py",
+            "language": "python",
+            "tier": 0,
+            "symbol_name": "save_document",
+            "kind": "function",
+        },
+        {
+            "id": "2",
+            "text": "class RepositoryIndexer:\n    pass",
+            "file_path": "src/app/b.py",
+            "language": "python",
+            "tier": 1,
+            "symbol_name": "RepositoryIndexer",
+            "kind": "class",
+        },
     ]
     prompt = assembler.assemble("How to do X?", chunks)
     
     assert "System rule." in prompt
-    assert "--- File: a.py | Language: python | Tier: 0 ---" in prompt
-    assert "Content 1" in prompt
-    assert "--- File: b.py | Language: python | Tier: 1 ---" in prompt
-    assert "Content 2" in prompt
+    assert "Retrieved summaries:" in prompt
+    assert "--- File:" not in prompt
+    assert "src/app/a.py" not in prompt
+    assert "def save_document()" not in prompt
+    assert "class RepositoryIndexer:" not in prompt
+    assert "save_document" in prompt
+    assert "RepositoryIndexer" in prompt
     assert "Query: How to do X?" in prompt
 
 def test_assemble_empty_chunks():

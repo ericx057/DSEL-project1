@@ -24,8 +24,10 @@ async def test_local_demo_completion_client_summarizes_retrieved_context():
     answer = "".join(chunks)
 
     assert "summary: What does RepositoryIndexer do?" in answer
-    assert "src/ingestion/indexer.py (python, tier 1)" in answer
-    assert "class RepositoryIndexer:" in answer
+    assert "Retrieved summaries:" in answer
+    assert "RepositoryIndexer" in answer
+    assert "src/ingestion/indexer.py" not in answer
+    assert "class RepositoryIndexer:" not in answer
     assert "src/gateway/main.py" not in answer
     assert "external inference server" in answer
 

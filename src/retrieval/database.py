@@ -89,6 +89,116 @@ class GraphEdgeRecord:
     relationship: str
 
 
+@dataclass(frozen=True)
+class LexicalMatch:
+    artifact_id: str
+    score: float
+
+
+class LexicalArtifactIndex:
+    _TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+    _CAMEL_RE = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z]|$)|[0-9]+")
+
+    def __init__(self, entries: Dict[str, Dict[str, Any]], token_to_ids: Dict[str, tuple[str, ...]]):
+        self._entries = entries
+        self._token_to_ids = token_to_ids
+
+    @classmethod
+    def from_records(cls, records: Iterable[Any]) -> "LexicalArtifactIndex":
+        entries: Dict[str, Dict[str, Any]] = {}
+        tokens: Dict[str, set[str]] = {}
+        for record in records:
+            artifact_id = str(cls._value(record, "id"))
+            fields = {
+                "repository": str(cls._value(record, "repository") or ""),
+                "tier": int(cls._value(record, "tier") or 0),
+                "file_path": str(cls._value(record, "file_path") or ""),
+                "symbol_name": str(cls._value(record, "symbol_name") or ""),
+                "kind": str(cls._value(record, "kind") or ""),
+                "metadata": str(cls._value(record, "metadata") or ""),
+            }
+            entries[artifact_id] = fields
+            searchable = " ".join(str(value) for value in fields.values())
+            for token in cls._tokens(searchable):
+                tokens.setdefault(token, set()).add(artifact_id)
+        return cls(entries, {token: tuple(sorted(ids)) for token, ids in tokens.items()})
+
+    def search(
+        self,
+        terms: Iterable[str],
+        user_tier: int,
+        repo_scope: Optional[Sequence[str]],
+        limit: int,
+    ) -> List[LexicalMatch]:
+        normalized_terms = {
+            term.lower()
+            for term in terms
+            if term and term.lower() not in QUERY_STOPWORDS and len(term) > 1
+        }
+        if not normalized_terms or limit <= 0:
+            return []
+        repo_set = set(repo_scope) if repo_scope is not None else None
+        if repo_set is not None and not repo_set:
+            return []
+
+        candidate_scores: Dict[str, float] = {}
+        for term in normalized_terms:
+            for artifact_id in self._token_to_ids.get(term, ()):
+                candidate_scores[artifact_id] = candidate_scores.get(artifact_id, 0.0) + self._term_weight(term)
+
+        matches: List[tuple[float, str, str]] = []
+        for artifact_id, token_score in candidate_scores.items():
+            entry = self._entries[artifact_id]
+            if entry["tier"] > user_tier:
+                continue
+            if repo_set is not None and entry["repository"] not in repo_set:
+                continue
+            score = token_score
+            file_path = entry["file_path"].lower()
+            symbol = entry["symbol_name"].lower()
+            kind = entry["kind"].lower()
+            metadata = entry["metadata"].lower()
+            for term in normalized_terms:
+                if term in symbol:
+                    score += 3.0
+                if term in metadata:
+                    score += 2.0
+                if term in file_path:
+                    score += 1.0
+                if term == kind:
+                    score += 0.5
+            matches.append((score, entry["file_path"], artifact_id))
+
+        matches.sort(key=lambda item: (-item[0], item[1], item[2]))
+        return [LexicalMatch(artifact_id=artifact_id, score=score) for score, _, artifact_id in matches[:limit]]
+
+    @classmethod
+    def _tokens(cls, text: str) -> set[str]:
+        tokens: set[str] = set()
+        for raw in cls._TOKEN_RE.findall(text):
+            lowered = raw.lower()
+            if len(lowered) > 1:
+                tokens.add(lowered)
+            for part in cls._CAMEL_RE.findall(raw.replace("_", " ")):
+                token = part.lower()
+                if len(token) > 1:
+                    tokens.add(token)
+        return tokens
+
+    @staticmethod
+    def _term_weight(term: str) -> float:
+        if re.match(r"(get|set|has|is)[a-z0-9_]{3,}$", term) or "_" in term:
+            return 8.0
+        return 4.0
+
+    @staticmethod
+    def _value(record: Any, key: str) -> Any:
+        try:
+            return record[key]
+        except (KeyError, IndexError, TypeError):
+            return None
+
+
 class HashingEmbeddingProvider:
     def __init__(self, dimensions: int = 128):
         if dimensions < 4:
@@ -120,6 +230,7 @@ QUERY_STOPWORDS = {
     "an",
     "and",
     "are",
+    "around",
     "artifact",
     "as",
     "at",
@@ -165,6 +276,8 @@ class SQLiteUnifiedStore(UnifiedStore):
         self._connection.row_factory = sqlite3.Row
         self._init_schema()
         self._emb_cache: Optional[Dict[str, Any]] = None
+        self._path_cache: Optional[List[Dict[str, str]]] = None
+        self._lexical_cache: Optional[LexicalArtifactIndex] = None
 
     def close(self) -> None:
         with self._lock:
@@ -274,6 +387,8 @@ class SQLiteUnifiedStore(UnifiedStore):
                     ],
                 )
             self._emb_cache = None
+            self._path_cache = None
+            self._lexical_cache = None
 
     def upsert_edges(self, edges: Sequence[GraphEdgeRecord]) -> None:
         with self._lock, self._connection:
@@ -295,6 +410,8 @@ class SQLiteUnifiedStore(UnifiedStore):
                     self._connection.execute(f"DELETE FROM edges WHERE target_id IN ({placeholders})", chunk)
             self._connection.execute("DELETE FROM artifacts WHERE repository = ?", (repository,))
             self._emb_cache = None
+            self._path_cache = None
+            self._lexical_cache = None
 
     def _sqlite_variable_limit(self) -> int:
         if hasattr(self._connection, "getlimit"):
@@ -321,6 +438,49 @@ class SQLiteUnifiedStore(UnifiedStore):
 
     def invalidate_emb_cache(self) -> None:
         self._emb_cache = None
+        self._path_cache = None
+        self._lexical_cache = None
+
+    def warm_cache(self) -> None:
+        self._ensure_emb_cache()
+
+    def warm_path_cache(self) -> None:
+        self._ensure_path_cache()
+
+    def warm_lexical_cache(self) -> None:
+        self._ensure_lexical_cache()
+
+    def _ensure_path_cache(self) -> None:
+        if self._path_cache is not None:
+            return
+        with self._lock:
+            if self._path_cache is not None:
+                return
+            rows = self._connection.execute(
+                "SELECT repository, file_path FROM artifacts GROUP BY repository, file_path"
+            ).fetchall()
+            self._path_cache = [
+                {
+                    "repository": row["repository"],
+                    "file_path": row["file_path"],
+                    "searchable": row["file_path"].lower().replace("/", " "),
+                }
+                for row in rows
+            ]
+
+    def _ensure_lexical_cache(self) -> None:
+        if self._lexical_cache is not None:
+            return
+        with self._lock:
+            if self._lexical_cache is not None:
+                return
+            rows = self._connection.execute(
+                (
+                    "SELECT id, repository, tier, file_path, symbol_name, kind, metadata "
+                    "FROM artifacts WHERE kind != 'chunk'"
+                )
+            ).fetchall()
+            self._lexical_cache = LexicalArtifactIndex.from_records(rows)
 
     def vector_search(
         self,
@@ -445,6 +605,165 @@ class SQLiteUnifiedStore(UnifiedStore):
         ).fetchall()
         return [self._row_to_dict(row) for row in rows]
 
+    def lexical_search(
+        self,
+        query: str,
+        user_tier: int,
+        repo_scope: Optional[Sequence[str]] = None,
+        top_k: int = 50,
+    ) -> List[Dict[str, Any]]:
+        terms = sorted(self._query_terms(query), key=len, reverse=True)[:8]
+        if not terms:
+            return []
+
+        self._ensure_lexical_cache()
+        assert self._lexical_cache is not None
+        matches = self._lexical_cache.search(
+            terms,
+            user_tier=user_tier,
+            repo_scope=repo_scope,
+            limit=max(top_k * 6, 50),
+        )
+        if matches:
+            ids = [match.artifact_id for match in matches]
+            placeholders = ",".join("?" for _ in ids)
+            rows = self._connection.execute(
+                f"SELECT * FROM artifacts WHERE id IN ({placeholders})",
+                ids,
+            ).fetchall()
+            rows_by_id = {row["id"]: row for row in rows}
+            results: List[Dict[str, Any]] = []
+            for match in matches:
+                row = rows_by_id.get(match.artifact_id)
+                if row is None:
+                    continue
+                item = self._row_to_dict(row)
+                item["score"] = match.score
+                item["_lexical_match"] = True
+                results.append(item)
+                if len(results) >= top_k:
+                    break
+            return results
+
+        repo_sql, repo_params = self._repo_clause(repo_scope)
+        rows_by_id: Dict[str, sqlite3.Row] = {}
+        for term in terms[:3]:
+            pattern = f"%{term}%"
+            rows = self._connection.execute(
+                (
+                    "SELECT * FROM artifacts WHERE tier <= ? AND LOWER(text) LIKE ?"
+                    f"{repo_sql} LIMIT ?"
+                ),
+                [user_tier, pattern, *repo_params, max(top_k * 4, 40)],
+            ).fetchall()
+            for row in rows:
+                rows_by_id.setdefault(row["id"], row)
+            if len(rows_by_id) >= top_k * 4:
+                break
+
+        scored: List[Dict[str, Any]] = []
+        for row in rows_by_id.values():
+            item = self._row_to_dict(row)
+            haystack = " ".join(
+                str(item.get(field, "")) for field in ("file_path", "symbol_name", "kind", "text")
+            ).lower()
+            item["score"] = float(sum(1 for term in terms if term in haystack))
+            item["_lexical_match"] = True
+            scored.append(item)
+        scored.sort(key=lambda item: (item["score"], item["file_path"]), reverse=True)
+        return scored[:top_k]
+
+    def file_path_search(
+        self,
+        query: str,
+        user_tier: int,
+        repo_scope: Optional[Sequence[str]] = None,
+        top_k: int = 50,
+        max_per_file: int = 2,
+    ) -> List[Dict[str, Any]]:
+        self._ensure_path_cache()
+        assert self._path_cache is not None
+        terms = sorted(self._query_terms(query), key=len, reverse=True)
+        if not terms:
+            return []
+        repo_set = set(repo_scope) if repo_scope is not None else None
+        if repo_set is not None and not repo_set:
+            return []
+        scored_paths: List[tuple[int, str, str]] = []
+        for row in self._path_cache:
+            repository = row["repository"]
+            if repo_set is not None and repository not in repo_set:
+                continue
+            file_path = row["file_path"]
+            path_lower = file_path.lower()
+            basename = path_lower.rsplit("/", 1)[-1]
+            stem = basename.rsplit(".", 1)[0]
+            score = 0
+            for term in terms:
+                if term == stem:
+                    score += 6
+                elif term in basename:
+                    score += 4
+                elif f"/{term}/" in path_lower or path_lower.startswith(f"{term}/"):
+                    score += 3
+                elif term in row["searchable"]:
+                    score += 1
+            if score:
+                scored_paths.append((score, repository, file_path))
+        scored_paths.sort(key=lambda item: (item[0], item[2]), reverse=True)
+
+        results: List[Dict[str, Any]] = []
+        seen_ids: set[str] = set()
+        kind_order = "CASE kind WHEN 'class' THEN 0 WHEN 'function' THEN 1 WHEN 'method' THEN 2 ELSE 3 END"
+        for score, repository, file_path in scored_paths[:top_k]:
+            rows = self._connection.execute(
+                (
+                    "SELECT * FROM artifacts WHERE tier <= ? AND repository = ? AND file_path = ? "
+                    f"ORDER BY {kind_order}, line_start LIMIT ?"
+                ),
+                [user_tier, repository, file_path, max_per_file],
+            ).fetchall()
+            for row in rows:
+                if row["id"] in seen_ids:
+                    continue
+                seen_ids.add(row["id"])
+                item = self._row_to_dict(row)
+                item["score"] = float(score)
+                item["_path_match"] = True
+                results.append(item)
+        return results
+
+    def get_artifacts_by_file_paths(
+        self,
+        file_paths: Sequence[str],
+        user_tier: int,
+        repo_scope: Optional[Sequence[str]] = None,
+        max_per_file: int = 3,
+    ) -> List[Dict[str, Any]]:
+        if not file_paths:
+            return []
+        repo_sql, repo_params = self._repo_clause(repo_scope)
+        kind_order = "CASE kind WHEN 'class' THEN 0 WHEN 'function' THEN 1 WHEN 'method' THEN 2 ELSE 3 END"
+        results: List[Dict[str, Any]] = []
+        seen: set[str] = set()
+        for file_path in file_paths:
+            rows = self._connection.execute(
+                (
+                    "SELECT * FROM artifacts WHERE tier <= ? AND file_path = ?"
+                    f"{repo_sql} ORDER BY {kind_order}, line_start LIMIT ?"
+                ),
+                [user_tier, file_path, *repo_params, max_per_file],
+            ).fetchall()
+            for row in rows:
+                if row["id"] in seen:
+                    continue
+                seen.add(row["id"])
+                item = self._row_to_dict(row)
+                item["score"] = 20.0
+                item["_alias_match"] = True
+                results.append(item)
+        return results
+
     _FILENAME_RE = re.compile(
         r"\b([A-Za-z_][A-Za-z0-9_]*\.(cpp|cxx|cc|c|h|hpp|hxx|py|pyx))\b"
     )
@@ -457,6 +776,7 @@ class SQLiteUnifiedStore(UnifiedStore):
         user_tier: int,
         repo_scope: Optional[Sequence[str]] = None,
         max_per_file: int = 2,
+        include_text_fallback: bool = True,
     ) -> List[Dict[str, Any]]:
         source_exts = (".cpp", ".cxx", ".cc", ".c", ".py")
         header_exts = (".h", ".hpp", ".hxx")
@@ -515,6 +835,9 @@ class SQLiteUnifiedStore(UnifiedStore):
             if rows:
                 files_found_by_name.add(basename)
             add_rows(rows, "_fn_match")
+
+        if not include_text_fallback:
+            return results
 
         for class_name in dict.fromkeys(class_names_for_text_fallback):
             inferred = {f"{class_name.lower()}{extension}" for extension in all_exts}

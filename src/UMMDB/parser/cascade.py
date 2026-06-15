@@ -23,6 +23,7 @@ class BaseParser:
         return []
 
 from .python_ast import PythonAstParser
+from .cpp import CppSignatureParser
 from .tree_sitter import TreeSitterParser
 from .ctags import CtagsParser
 from .fallback import RegexParser, SlidingWindowParser
@@ -31,6 +32,7 @@ class CascadingParser(BaseParser):
     def __init__(self):
         self.parsers = [
             PythonAstParser(),
+            CppSignatureParser(),
             TreeSitterParser(),
             CtagsParser(),
             RegexParser(),
@@ -43,13 +45,20 @@ class CascadingParser(BaseParser):
     def parse(self, file_path: str, language: Optional[str] = None) -> List[ParsedChunk]:
         if not os.path.exists(file_path):
             return []
-            
+        fallback_chunks: List[ParsedChunk] = []
         for parser in self.parsers:
             if parser.can_parse(file_path, language):
                 try:
                     chunks = parser.parse(file_path, language)
-                    if chunks:
+                    if chunks and self._has_symbol_chunks(chunks):
                         return chunks
+                    if chunks and not fallback_chunks:
+                        fallback_chunks = chunks
                 except Exception:
                     continue # Fallback to next parser
-        return []
+        return fallback_chunks
+
+    @staticmethod
+    def _has_symbol_chunks(chunks: List[ParsedChunk]) -> bool:
+        symbol_kinds = {"class", "function", "method"}
+        return any(chunk.tier == 1 and chunk.kind in symbol_kinds for chunk in chunks)

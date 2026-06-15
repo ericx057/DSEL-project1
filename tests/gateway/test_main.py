@@ -107,7 +107,14 @@ async def test_cache_hit(test_app):
     from src.gateway.services import CacheService
     cache_svc = CacheService(cache_repo)
     key = cache_svc._generate_key("TestQuery", AccessTier.T3, ["repo-a"])
-    await cache_repo.set(key, "Cached Answer", 3600)
+    await cache_repo.set(
+        key,
+        "--- File: src/app/service.py | Language: python | Tier: 1 ---\n"
+        "def cached_answer():\n"
+        "    return 'raw path dump'\n"
+        "Cached Answer",
+        3600,
+    )
     
     async with AsyncClient(transport=ASGITransport(app=fastapi_app), base_url="http://test") as ac:
         response = await ac.post(
@@ -116,7 +123,11 @@ async def test_cache_hit(test_app):
             headers={"Authorization": "user1"}
         )
         assert response.status_code == 200
-        assert response.json() == {"response": "Cached Answer", "cached": True}
+        body = response.json()
+        assert body["cached"] is True
+        assert "Cached Answer" in body["response"]
+        assert "src/app/service.py" not in body["response"]
+        assert "def cached_answer" not in body["response"]
         assert audit_repo.events[0].cache_hit is True
 
 @pytest.mark.asyncio

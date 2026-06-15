@@ -90,7 +90,10 @@ async def test_production_query_flow_retrieves_before_inference_and_logs(tmp_pat
 
     assert response.status_code == 200
     assert response.text == "answer"
-    assert "def public_api()" in model_hook.prompts[0]
+    assert "Retrieved summaries:" in model_hook.prompts[0]
+    assert "public_api" in model_hook.prompts[0]
+    assert "def public_api()" not in model_hook.prompts[0]
+    assert "app.py" not in model_hook.prompts[0]
     assert "secret implementation detail" not in model_hook.prompts[0]
     assert audit.list_events()[0].cache_hit is False
     assert audit.list_events()[0].inference_engine_used == "recording-engine"

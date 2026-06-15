@@ -29,14 +29,12 @@ from src.gateway.repositories import (
 )
 from src.gateway.security import HS256JWTVerifier
 from src.gateway.services import InMemorySemanticCacheRepository, TokenBucketRateLimitRepository
+from src.retrieval.context_summary import RetrievedContextSummarizer
 
 
 @dataclass(frozen=True)
 class DemoContextBlock:
-    file_path: str
-    language: str
-    tier: str
-    preview_lines: tuple[str, ...]
+    summary: str
 
 
 class LocalDemoCompletionClient:
@@ -45,6 +43,7 @@ class LocalDemoCompletionClient:
         r"(?P<text>.*?)(?=^--- File: |^Query: |\Z)",
         re.MULTILINE | re.DOTALL,
     )
+    SUMMARY_PATTERN = re.compile(r"^\[\d+\]\s+(?P<summary>.+)$", re.MULTILINE)
 
     def __init__(self, max_context_files: int = 5, max_preview_lines: int = 3, chunk_size: int = 96):
         self.max_context_files = max_context_files
@@ -72,10 +71,9 @@ class LocalDemoCompletionClient:
             "",
         ]
         if context_blocks:
-            lines.append("Top retrieved context:")
+            lines.append("Retrieved summaries:")
             for block in context_blocks:
-                lines.append(f"- {block.file_path} ({block.language}, tier {block.tier})")
-                lines.extend(f"  {line}" for line in block.preview_lines)
+                lines.append(f"- {block.summary}")
         else:
             lines.append("No indexed context matched this query.")
         lines.extend(
@@ -93,18 +91,31 @@ class LocalDemoCompletionClient:
 
     def _extract_context_blocks(self, prompt: str) -> list[DemoContextBlock]:
         blocks: list[DemoContextBlock] = []
+        for match in self.SUMMARY_PATTERN.finditer(prompt):
+            blocks.append(DemoContextBlock(summary=match.group("summary").strip()))
+            if len(blocks) >= self.max_context_files:
+                return blocks
+
         seen: set[str] = set()
+        summarizer = RetrievedContextSummarizer()
         for match in self.CONTEXT_BLOCK_PATTERN.finditer(prompt):
             file_path = match.group("file")
             if file_path in seen:
                 continue
             seen.add(file_path)
+            summary = summarizer.summarize_chunk(
+                {
+                    "symbol_name": Path(file_path).stem,
+                    "language": match.group("language"),
+                    "tier": match.group("tier"),
+                    "text": match.group("text"),
+                    "kind": "artifact",
+                },
+                len(blocks) + 1,
+            )
             blocks.append(
                 DemoContextBlock(
-                    file_path=file_path,
-                    language=match.group("language"),
-                    tier=match.group("tier"),
-                    preview_lines=tuple(self._preview_lines(match.group("text"))),
+                    summary=summary,
                 )
             )
             if len(blocks) >= self.max_context_files:

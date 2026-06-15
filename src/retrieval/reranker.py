@@ -106,6 +106,11 @@ class LexicalReranker:
     def _score(cls, query: str, chunk: Dict[str, Any]) -> float:
         searchable = cls._searchable_text(chunk)
         file_path = str(chunk.get("file_path", "")).lower().replace("\\", "/")
+        metadata = chunk.get("metadata") or {}
+        symbol_text = " ".join(
+            str(value)
+            for value in (chunk.get("symbol_name", ""), metadata.get("qualified_name", ""))
+        ).lower()
         basename = Path(file_path).name
         suffix = Path(file_path).suffix
         score = 0.0
@@ -113,6 +118,8 @@ class LexicalReranker:
         for term in cls._query_terms(query):
             if term in searchable:
                 score += 1.0
+            if term in symbol_text:
+                score += 8.0
             score += cls._path_token_score(term, file_path)
 
         for literal in cls._query_literals(query):
@@ -150,7 +157,23 @@ class LexicalReranker:
             score += 35.0
         if cls._is_named_config_match(query_terms, file_path, int(chunk.get("line_end", 9999) or 9999)):
             score += 60.0
+        score += cls._source_marker_score(chunk)
 
+        return score
+
+    @staticmethod
+    def _source_marker_score(chunk: Dict[str, Any]) -> float:
+        score = 0.0
+        if chunk.get("_alias_match"):
+            score += 12.0
+        if chunk.get("_path_match"):
+            score += 6.0
+        if chunk.get("_fn_match"):
+            score += 5.0
+        if chunk.get("_lexical_match"):
+            score += 4.0
+        if chunk.get("_text_match"):
+            score += 2.0
         return score
 
     @staticmethod

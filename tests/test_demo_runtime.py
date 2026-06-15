@@ -440,17 +440,28 @@ def test_retrieval_engine_warmup_loads_path_and_lexical_caches():
     assert engine._store.calls == ["path", "lexical"]
 
 
-def test_retrieval_engine_uses_polyline_concept_aliases():
+def test_retrieval_engine_uses_store_searches_without_domain_aliases():
     class FakeStore:
         def __init__(self):
-            self.file_paths = []
+            self.alias_calls = []
+            self.path_queries = []
 
         def get_artifacts_by_file_paths(self, file_paths, user_tier, max_per_file=4):
-            self.file_paths.extend(file_paths)
-            return [{"id": path, "file_path": path, "score": 20.0} for path in file_paths]
+            self.alias_calls.append(tuple(file_paths))
+            return []
 
         def file_path_search(self, query, user_tier, top_k=80):
-            return []
+            self.path_queries.append(query)
+            return [
+                {
+                    "id": "polyline-impl",
+                    "file_path": "src/render/Polyline.cpp",
+                    "symbol_name": "Polyline::addNode",
+                    "kind": "method",
+                    "text": "addNode updates the vertex list",
+                    "score": 5.0,
+                }
+            ]
 
     class FakeReranker:
         def rerank(self, query, hits, top_m):
@@ -467,9 +478,9 @@ def test_retrieval_engine_uses_polyline_concept_aliases():
 
     result = engine.search("where does polylines vertex live", top_k=5)
 
-    assert "src/Gui/GLPainter.cpp" in engine._store.file_paths
-    assert "src/Gui/MouseSelection.cpp" in engine._store.file_paths
-    assert result.hits[0]["file_path"] == "src/Gui/GLPainter.h"
+    assert engine._store.alias_calls == []
+    assert engine._store.path_queries == ["where does polylines vertex live"]
+    assert result.hits[0]["file_path"] == "src/render/Polyline.cpp"
 
 
 def test_retrieval_engine_prefers_symbol_hits_over_path_noise_for_code_identifiers():
