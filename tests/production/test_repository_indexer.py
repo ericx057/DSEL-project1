@@ -267,3 +267,42 @@ def test_repository_indexer_adds_generic_markdown_table_artifacts(tmp_path: Path
         and "table[1].row[1].Purpose = Serves repository metadata." in item["text"]
         for item in results
     )
+
+
+def test_repository_indexer_indexes_cpp_methods_as_symbols(tmp_path: Path):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    source = repo / "TopoShapePyImp.cpp"
+    source.write_text(
+        "\n".join(
+            [
+                "Py::List TopoShapePy::getVertexes() const",
+                "{",
+                "    return getElements(*getTopoShapePtr(), TopAbs_VERTEX);",
+                "}",
+                "",
+                "Py::List TopoShapePy::getEdges() const",
+                "{",
+                "    return getElements(*getTopoShapePtr(), TopAbs_EDGE);",
+                "}",
+                "",
+                "Py::List TopoShapePy::getWires() const",
+                "{",
+                "    return getElements(*getTopoShapePtr(), TopAbs_WIRE);",
+                "}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+
+    RepositoryIndexer(store).index_repository("repo-a", repo)
+
+    artifacts = store.list_artifacts(user_tier=3, repo_scope=["repo-a"])
+    method_symbols = {
+        item["symbol_name"]
+        for item in artifacts
+        if item["kind"] in {"method", "method-implementation"}
+    }
+    assert {"getEdges", "getVertexes", "getWires"} <= method_symbols
