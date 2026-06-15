@@ -102,3 +102,27 @@ def test_cpp_parser_preserves_overloaded_signatures(tmp_path: Path):
     assert len(methods) == 2
     assert len(hashes) == 2
     assert signatures == {"Shape::move(int x)", "Shape::move(double x)"}
+
+
+def test_cpp_parser_qualifies_namespace_free_functions(tmp_path: Path):
+    source = tmp_path / "geometry.cpp"
+    source.write_text(
+        "\n".join(
+            [
+                "namespace geom {",
+                "double length(const Point& point) {",
+                "    return norm(point);",
+                "}",
+                "}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    chunks = CppSignatureParser().parse(str(source), "cpp")
+
+    function_chunk = next(chunk for chunk in chunks if chunk.symbol_name == "length" and chunk.tier == 1)
+    assert function_chunk.kind == "function"
+    assert function_chunk.metadata["qualified_name"] == "geom::length"
+    assert function_chunk.metadata["signature"] == "geom::length(const Point& point)"
+    assert function_chunk.calls == ("norm",)

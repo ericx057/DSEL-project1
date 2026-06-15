@@ -92,6 +92,7 @@ async def test_production_query_flow_retrieves_before_inference_and_logs(tmp_pat
     assert response.text == "answer"
     assert "Retrieved summaries:" in model_hook.prompts[0]
     assert "public_api" in model_hook.prompts[0]
+    assert "Do not answer by listing file paths" in model_hook.prompts[0]
     assert "def public_api()" not in model_hook.prompts[0]
     assert "app.py" not in model_hook.prompts[0]
     assert "secret implementation detail" not in model_hook.prompts[0]

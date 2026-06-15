@@ -1,5 +1,6 @@
 import pytest
 from retrieval.assembler import PromptAssembler
+from retrieval.context_summary import ResponseShaper, RetrievedContextSummarizer
 
 def test_u_shape_order():
     assembler = PromptAssembler()
@@ -65,3 +66,56 @@ def test_assemble_empty_chunks():
     prompt = assembler.assemble("Query?", [])
     assert "Context:" not in prompt
     assert "Query: Query?" in prompt
+
+
+def test_summarizer_does_not_echo_path_like_symbols():
+    summary = RetrievedContextSummarizer().summarize_chunks(
+        [
+            {
+                "symbol_name": r"src\app\service.py",
+                "kind": "chunk",
+                "language": "python",
+                "line_start": 1,
+                "line_end": 8,
+                "text": "class Service:\n    def handle(self):\n        return expensive_call()",
+            }
+        ]
+    )
+
+    assert r"src\app\service.py" not in summary
+    assert "src/app/service.py" not in summary
+    assert "Service" in summary
+    assert "expensive_call" in summary
+
+
+def test_response_shaper_summarizes_legacy_raw_file_blocks():
+    raw = "\n".join(
+        [
+            r"--- File: src\app\service.py | Language: python | Tier: 1 ---",
+            "class Service:",
+            "    def handle(self):",
+            "        value = expensive_call()",
+            "        return value",
+        ]
+    )
+
+    shaped = ResponseShaper().shape(raw)
+
+    assert "Retrieved summaries:" in shaped
+    assert r"src\app\service.py" not in shaped
+    assert "src/app/service.py" not in shaped
+    assert "class Service:" not in shaped
+    assert "def handle" not in shaped
+    assert "value = expensive_call()" not in shaped
+    assert "Service" in shaped
+    assert "expensive_call" in shaped
+
+
+def test_response_shaper_removes_windows_relative_paths_from_cached_text():
+    shaped = ResponseShaper().shape(
+        r"The answer is in src\gateway\main.py and tests\gateway\test_main.py. Service handles it."
+    )
+
+    assert r"src\gateway\main.py" not in shaped
+    assert r"tests\gateway\test_main.py" not in shaped
+    assert "Service handles it." in shaped
