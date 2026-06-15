@@ -12,6 +12,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
+try:
+    import numpy as np
+    _NUMPY = True
+except ImportError:
+    _NUMPY = False
+
 from src.retrieval.embeddings import EmbeddingProvider
 
 class UnifiedStore(ABC):
@@ -158,6 +164,7 @@ class SQLiteUnifiedStore(UnifiedStore):
         self._connection = sqlite3.connect(self.db_path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         self._init_schema()
+        self._emb_cache: Optional[Dict[str, Any]] = None
 
     def close(self) -> None:
         with self._lock:
@@ -211,51 +218,62 @@ class SQLiteUnifiedStore(UnifiedStore):
             )
             self._connection.execute("CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id)")
             self._connection.execute("CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id)")
+            self._connection.execute("CREATE INDEX IF NOT EXISTS idx_artifacts_file_path ON artifacts(file_path)")
+
+    _EMBED_BATCH = 64
 
     def upsert_artifacts(self, artifacts: Sequence[ArtifactRecord]) -> None:
+        if not artifacts:
+            return
         now = time.time()
+        sql = """
+            INSERT INTO artifacts (
+                id, repository, file_path, language, text, tier, fidelity,
+                symbol_name, line_start, line_end, kind, embedding, metadata, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                repository=excluded.repository,
+                file_path=excluded.file_path,
+                language=excluded.language,
+                text=excluded.text,
+                tier=excluded.tier,
+                fidelity=excluded.fidelity,
+                symbol_name=excluded.symbol_name,
+                line_start=excluded.line_start,
+                line_end=excluded.line_end,
+                kind=excluded.kind,
+                embedding=excluded.embedding,
+                metadata=excluded.metadata,
+                updated_at=excluded.updated_at
+        """
         with self._lock, self._connection:
-            for artifact in artifacts:
-                embedding = self.embedding_provider.embed(artifact.text)
-                self._connection.execute(
-                    """
-                    INSERT INTO artifacts (
-                        id, repository, file_path, language, text, tier, fidelity,
-                        symbol_name, line_start, line_end, kind, embedding, metadata, updated_at
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET
-                        repository=excluded.repository,
-                        file_path=excluded.file_path,
-                        language=excluded.language,
-                        text=excluded.text,
-                        tier=excluded.tier,
-                        fidelity=excluded.fidelity,
-                        symbol_name=excluded.symbol_name,
-                        line_start=excluded.line_start,
-                        line_end=excluded.line_end,
-                        kind=excluded.kind,
-                        embedding=excluded.embedding,
-                        metadata=excluded.metadata,
-                        updated_at=excluded.updated_at
-                    """,
-                    (
-                        artifact.artifact_id,
-                        artifact.repository,
-                        artifact.file_path,
-                        artifact.language,
-                        artifact.text,
-                        artifact.tier,
-                        artifact.fidelity,
-                        artifact.symbol_name,
-                        artifact.line_start,
-                        artifact.line_end,
-                        artifact.kind,
-                        json.dumps(embedding),
-                        json.dumps(artifact.metadata, sort_keys=True),
-                        now,
-                    ),
+            for index in range(0, len(artifacts), self._EMBED_BATCH):
+                batch = artifacts[index : index + self._EMBED_BATCH]
+                embeddings = self.embedding_provider.embed_many([artifact.text for artifact in batch])
+                self._connection.executemany(
+                    sql,
+                    [
+                        (
+                            artifact.artifact_id,
+                            artifact.repository,
+                            artifact.file_path,
+                            artifact.language,
+                            artifact.text,
+                            artifact.tier,
+                            artifact.fidelity,
+                            artifact.symbol_name,
+                            artifact.line_start,
+                            artifact.line_end,
+                            artifact.kind,
+                            json.dumps(embedding),
+                            json.dumps(artifact.metadata, sort_keys=True),
+                            now,
+                        )
+                        for artifact, embedding in zip(batch, embeddings)
+                    ],
                 )
+            self._emb_cache = None
 
     def upsert_edges(self, edges: Sequence[GraphEdgeRecord]) -> None:
         with self._lock, self._connection:
@@ -276,6 +294,7 @@ class SQLiteUnifiedStore(UnifiedStore):
                     self._connection.execute(f"DELETE FROM edges WHERE source_id IN ({placeholders})", chunk)
                     self._connection.execute(f"DELETE FROM edges WHERE target_id IN ({placeholders})", chunk)
             self._connection.execute("DELETE FROM artifacts WHERE repository = ?", (repository,))
+            self._emb_cache = None
 
     def _sqlite_variable_limit(self) -> int:
         if hasattr(self._connection, "getlimit"):
@@ -287,6 +306,22 @@ class SQLiteUnifiedStore(UnifiedStore):
         for index in range(0, len(values), size):
             yield values[index : index + size]
 
+    def _ensure_emb_cache(self) -> None:
+        if self._emb_cache is not None:
+            return
+        rows = list(self._connection.execute("SELECT id, tier, repository, embedding FROM artifacts"))
+        ids = [row["id"] for row in rows]
+        tiers = [row["tier"] for row in rows]
+        repos = [row["repository"] for row in rows]
+        if _NUMPY:
+            matrix = np.array([json.loads(row["embedding"]) for row in rows], dtype=np.float32)
+        else:
+            matrix = [json.loads(row["embedding"]) for row in rows]
+        self._emb_cache = {"ids": ids, "tiers": tiers, "repos": repos, "matrix": matrix}
+
+    def invalidate_emb_cache(self) -> None:
+        self._emb_cache = None
+
     def vector_search(
         self,
         query: str,
@@ -294,14 +329,48 @@ class SQLiteUnifiedStore(UnifiedStore):
         repo_scope: Optional[Sequence[str]] = None,
         top_k: int = 20,
     ) -> List[Dict[str, Any]]:
+        self._ensure_emb_cache()
+        cache = self._emb_cache
+        assert cache is not None
+
         query_embedding = self.embedding_provider.embed(query)
-        rows = self._select_allowed_artifacts(user_tier, repo_scope)
+        ids = cache["ids"]
+        tiers = cache["tiers"]
+        repos = cache["repos"]
+        matrix = cache["matrix"]
+        repo_set = set(repo_scope) if repo_scope is not None else None
+
+        if _NUMPY:
+            if len(ids) == 0:
+                return []
+            scores = matrix @ np.array(query_embedding, dtype=np.float32)
+            candidates = [
+                (float(cosine), artifact_id)
+                for artifact_id, tier, repository, cosine in zip(ids, tiers, repos, scores)
+                if tier <= user_tier and (repo_set is None or repository in repo_set)
+            ]
+        else:
+            candidates = [
+                (self._cosine(query_embedding, embedding), artifact_id)
+                for artifact_id, tier, repository, embedding in zip(ids, tiers, repos, matrix)
+                if tier <= user_tier and (repo_set is None or repository in repo_set)
+            ]
+
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        candidate_ids = [artifact_id for _, artifact_id in candidates[: top_k * 4]]
+        if not candidate_ids:
+            return []
+        placeholders = ",".join("?" for _ in candidate_ids)
+        rows = self._connection.execute(
+            f"SELECT * FROM artifacts WHERE id IN ({placeholders})",
+            candidate_ids,
+        ).fetchall()
+        cosine_scores = {artifact_id: score for score, artifact_id in candidates}
+
         scored = []
         for row in rows:
-            embedding = json.loads(row["embedding"])
-            cosine = self._cosine(query_embedding, embedding)
             item = self._row_to_dict(row)
-            item["score"] = cosine + self._lexical_score(query, row)
+            item["score"] = cosine_scores.get(row["id"], 0.0) + self._lexical_score(query, row)
             scored.append(item)
         scored.sort(key=lambda item: item["score"], reverse=True)
         return scored[:top_k]
@@ -375,6 +444,115 @@ class SQLiteUnifiedStore(UnifiedStore):
             [user_tier, *artifact_ids],
         ).fetchall()
         return [self._row_to_dict(row) for row in rows]
+
+    _FILENAME_RE = re.compile(
+        r"\b([A-Za-z_][A-Za-z0-9_]*\.(cpp|cxx|cc|c|h|hpp|hxx|py|pyx))\b"
+    )
+    _QUALIFIED_SYM_RE = re.compile(r"`?([A-Z][A-Za-z0-9_]*)(?:::[A-Za-z0-9_]+)+`?")
+    _BACKTICK_CLASS_RE = re.compile(r"`([A-Z][A-Za-z0-9_]{1,})`")
+
+    def filename_search(
+        self,
+        query: str,
+        user_tier: int,
+        repo_scope: Optional[Sequence[str]] = None,
+        max_per_file: int = 2,
+    ) -> List[Dict[str, Any]]:
+        source_exts = (".cpp", ".cxx", ".cc", ".c", ".py")
+        header_exts = (".h", ".hpp", ".hxx")
+        all_exts = (*header_exts, *source_exts)
+
+        basenames = [match.group(1).lower() for match in self._FILENAME_RE.finditer(query)]
+        class_names_for_text_fallback: List[str] = []
+
+        for match in self._QUALIFIED_SYM_RE.finditer(query):
+            for part in match.group(0).strip("`").split("::"):
+                if not part or not part[0].isupper():
+                    continue
+                if part not in class_names_for_text_fallback:
+                    class_names_for_text_fallback.append(part)
+                for extension in all_exts:
+                    candidate = f"{part.lower()}{extension}"
+                    if candidate not in basenames:
+                        basenames.append(candidate)
+
+        for match in self._BACKTICK_CLASS_RE.finditer(query):
+            class_name = match.group(1)
+            if class_name not in class_names_for_text_fallback:
+                class_names_for_text_fallback.append(class_name)
+            for extension in all_exts:
+                candidate = f"{class_name.lower()}{extension}"
+                if candidate not in basenames:
+                    basenames.append(candidate)
+
+        repo_sql, repo_params = self._repo_clause(repo_scope)
+        kind_order = " ORDER BY CASE kind WHEN 'class' THEN 0 WHEN 'function' THEN 1 WHEN 'method' THEN 2 ELSE 3 END"
+        results: List[Dict[str, Any]] = []
+        seen_ids: set[str] = set()
+        file_counts: Dict[str, int] = {}
+        files_found_by_name: set[str] = set()
+
+        def add_rows(rows: Sequence[sqlite3.Row], marker: str) -> None:
+            for row in rows:
+                if row["id"] in seen_ids:
+                    continue
+                file_path = row["file_path"]
+                if file_counts.get(file_path, 0) >= max_per_file:
+                    continue
+                seen_ids.add(row["id"])
+                file_counts[file_path] = file_counts.get(file_path, 0) + 1
+                item = self._row_to_dict(row)
+                item["score"] = 1.0
+                item[marker] = True
+                results.append(item)
+
+        for basename in dict.fromkeys(basenames):
+            params: List[Any] = [user_tier, f"%{basename}", *repo_params]
+            rows = self._connection.execute(
+                f"SELECT * FROM artifacts WHERE tier <= ? AND LOWER(file_path) LIKE ?{repo_sql}{kind_order}",
+                params,
+            ).fetchall()
+            if rows:
+                files_found_by_name.add(basename)
+            add_rows(rows, "_fn_match")
+
+        for class_name in dict.fromkeys(class_names_for_text_fallback):
+            inferred = {f"{class_name.lower()}{extension}" for extension in all_exts}
+            if inferred & files_found_by_name:
+                continue
+            params = [user_tier, f"%{class_name}%", *repo_params]
+            rows = self._connection.execute(
+                f"""
+                SELECT * FROM artifacts
+                WHERE tier <= ? AND text LIKE ?{repo_sql}
+                  AND (
+                    LOWER(file_path) LIKE '%.cpp'
+                    OR LOWER(file_path) LIKE '%.cxx'
+                    OR LOWER(file_path) LIKE '%.cc'
+                    OR LOWER(file_path) LIKE '%.c'
+                    OR LOWER(file_path) LIKE '%.h'
+                    OR LOWER(file_path) LIKE '%.hpp'
+                    OR LOWER(file_path) LIKE '%.hxx'
+                    OR LOWER(file_path) LIKE '%.py'
+                  )
+                {kind_order}
+                """,
+                params,
+            ).fetchall()
+            if len({row["file_path"] for row in rows}) > 8:
+                continue
+            add_rows(rows, "_text_match")
+
+        return results
+
+    @staticmethod
+    def _repo_clause(repo_scope: Optional[Sequence[str]]) -> tuple[str, List[str]]:
+        if repo_scope is None:
+            return "", []
+        if not repo_scope:
+            return " AND 1=0", []
+        placeholders = ",".join("?" for _ in repo_scope)
+        return f" AND repository IN ({placeholders})", list(repo_scope)
 
     def _select_allowed_artifacts(
         self,
