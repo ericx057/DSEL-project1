@@ -26,7 +26,7 @@ class HybridSearcher:
     ) -> List[Dict[str, Any]]:
         # Filename shortlist: directly fetch artifacts for any named source file.
         # This bypasses the embedding scan and dramatically improves recall when
-        # the query explicitly names files (e.g. "Document.cpp", "GCS.h").
+        # the query explicitly names files (e.g. "service.py", "widget.hpp").
         fn_res = (
             self.store.filename_search(query, user_tier, repo_scope)
             if hasattr(self.store, "filename_search")
