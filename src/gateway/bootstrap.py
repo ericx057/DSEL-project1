@@ -18,6 +18,7 @@ from src.gateway.repositories import (
 from src.gateway.security import HS256JWTVerifier
 from src.gateway.services import InMemorySemanticCacheRepository, TokenBucketRateLimitRepository
 from src.gateway.services import RedisSemanticCacheRepository
+from src.harness.trace import SQLiteTraceRecorder
 
 
 def build_app():
@@ -65,6 +66,7 @@ def build_app():
         retrieval_store=store,
         jwt_verifier=HS256JWTVerifier(jwt_secret, issuer=issuer, audience=audience),
         metrics_token=metrics_token,
+        trace_recorder=SQLiteTraceRecorder(data_dir / "traces.db"),
     )
 
     frontend_path = Path(os.environ.get("CIS_FRONTEND_PATH", "/app/src/frontend/index.html")).resolve()

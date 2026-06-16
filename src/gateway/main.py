@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 import time
-from typing import AsyncGenerator, Optional
+from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, Query
 from fastapi.responses import Response, StreamingResponse
 
-from src.retrieval.assembler import PromptAssembler
-from src.retrieval.context_summary import ResponseShaper
 from src.retrieval.database import UnifiedStore
-from src.retrieval.hybrid import HybridSearcher
-from src.retrieval.reranker import LexicalReranker
 from src.diagram.service import DiagramService
 from src.gateway.model_hook import ModelHook
 from src.gateway.models import AuditEvent, HistoryRecord, QueryRequest
@@ -32,9 +28,13 @@ from src.gateway.services import (
     ScopingService,
     tier_rank,
 )
+from src.harness.models import TaskSpec
+from src.harness.service import HarnessService
+from src.harness.trace import InMemoryTraceRecorder, TraceRecorder
 
 
 global_circuit_breaker = CircuitBreaker()
+global_trace_recorder = InMemoryTraceRecorder()
 
 
 def get_access_matrix_repo() -> AccessMatrixRepository:
@@ -63,6 +63,10 @@ def get_history_repo() -> Optional[UserHistoryRepository]:
 
 def get_retrieval_store() -> Optional[UnifiedStore]:
     return None
+
+
+def get_trace_recorder() -> TraceRecorder:
+    return global_trace_recorder
 
 
 def get_jwt_verifier() -> Optional[HS256JWTVerifier]:
@@ -108,6 +112,7 @@ def create_app(
     model_hook: Optional[ModelHook] = None,
     jwt_verifier: Optional[HS256JWTVerifier] = None,
     metrics_token: Optional[str] = None,
+    trace_recorder: Optional[TraceRecorder] = None,
 ) -> FastAPI:
     api = FastAPI(title="Codebase Intelligence System - Gateway", version="1.0.0")
 
@@ -141,6 +146,8 @@ def create_app(
         api.dependency_overrides[get_model_hook] = lambda: model_hook
     if jwt_verifier is not None:
         api.dependency_overrides[get_jwt_verifier] = lambda: jwt_verifier
+    if trace_recorder is not None:
+        api.dependency_overrides[get_trace_recorder] = lambda: trace_recorder
 
     @api.get("/health")
     async def health():
@@ -210,25 +217,25 @@ def create_app(
         selected_model_hook: ModelHook = Depends(get_model_hook),
         store: Optional[UnifiedStore] = Depends(get_retrieval_store),
         history: Optional[UserHistoryRepository] = Depends(get_history_repo),
+        trace_recorder: TraceRecorder = Depends(get_trace_recorder),
     ):
         start_time = time.time()
-        response_shaper = ResponseShaper()
         user = iam.decode_token(authorization)
         rate_limit.check_circuit_breaker()
         await rate_limit.check_rate_limit(user.id)
 
         tier = await iam.get_tier(user.id)
         scopes = await scoping.resolve_scope(user, request.query)
+        inference_engine_used = getattr(selected_model_hook, "inference_engine_id", "llama.cpp")
         query_hash = cache._generate_key(request.query, tier, scopes)
         if not scopes:
-            blocked_engine_used = getattr(selected_model_hook, "inference_engine_id", "llama.cpp")
             await audit.log(
                 AuditEvent(
                     user_id=user.id,
                     access_tier=tier,
                     query_hash=query_hash,
                     repo_scope=[],
-                    inference_engine_used=blocked_engine_used,
+                    inference_engine_used=inference_engine_used,
                     latency_ms=(time.time() - start_time) * 1000,
                     cache_hit=False,
                     rbac_blocked=True,
@@ -236,9 +243,26 @@ def create_app(
             )
             return Response("No authorized repository scope for this query.", status_code=403)
 
-        cached_response = await cache.get_cached_response(request.query, tier, scopes)
-        if cached_response:
-            shaped_response = response_shaper.shape(cached_response)
+        if store is None:
+            raise RuntimeError("Retrieval store is not configured")
+
+        task = TaskSpec(
+            query=request.query,
+            user_id=user.id,
+            access_tier=tier,
+            repo_scopes=scopes,
+            model_id=inference_engine_used,
+            response_mode="answer",
+            stream=True,
+        )
+        result = await HarnessService(
+            store=store,
+            cache=cache,
+            model=selected_model_hook,
+            trace_recorder=trace_recorder,
+        ).execute(task)
+
+        if result.cache_status == "hit":
             await audit.log(
                 AuditEvent(
                     user_id=user.id,
@@ -251,75 +275,38 @@ def create_app(
                     rbac_blocked=False,
                 )
             )
-            return {"response": shaped_response, "cached": True}
+            return {"response": result.response, "cached": True, "trace_id": result.trace_id}
 
-        acquired = await cache.acquire_lock(request.query, tier, scopes)
-        if not acquired:
-            async def subscriber_stream() -> AsyncGenerator[str, None]:
-                chunks = []
-                async for chunk in cache.subscribe(request.query, tier, scopes):
-                    chunks.append(chunk)
-                yield response_shaper.shape("".join(chunks))
-            return StreamingResponse(subscriber_stream(), media_type="text/event-stream")
-
-        prompt = _build_prompt(request.query, tier, scopes, store)
-        inference_engine_used = getattr(selected_model_hook, "inference_engine_id", "llama.cpp")
-
-        async def inference_stream() -> AsyncGenerator[str, None]:
-            full_response = []
-            try:
-                async for chunk in selected_model_hook.generate_stream(prompt):
-                    full_response.append(chunk)
-
-                final_text = response_shaper.shape("".join(full_response))
-                await cache.publish(request.query, tier, scopes, final_text)
-                yield final_text
-                await cache.set_cached_response(request.query, tier, scopes, final_text)
-                if history is not None:
-                    await history.add_record(
-                        HistoryRecord(
-                            user_id=user.id,
-                            query=request.query,
-                            response=final_text,
-                            inference_engine_used=inference_engine_used,
-                            repo_scope=scopes,
-                            created_at=time.time(),
-                        )
-                    )
-                await audit.log(
-                    AuditEvent(
+        if result.cache_status == "miss":
+            if history is not None:
+                await history.add_record(
+                    HistoryRecord(
                         user_id=user.id,
-                        access_tier=tier,
-                        query_hash=query_hash,
-                        repo_scope=scopes,
+                        query=request.query,
+                        response=result.response,
                         inference_engine_used=inference_engine_used,
-                        latency_ms=(time.time() - start_time) * 1000,
-                        cache_hit=False,
-                        rbac_blocked=False,
+                        repo_scope=scopes,
+                        created_at=time.time(),
                     )
                 )
-            finally:
-                await cache.release_lock(request.query, tier, scopes)
+            await audit.log(
+                AuditEvent(
+                    user_id=user.id,
+                    access_tier=tier,
+                    query_hash=query_hash,
+                    repo_scope=scopes,
+                    inference_engine_used=inference_engine_used,
+                    latency_ms=(time.time() - start_time) * 1000,
+                    cache_hit=False,
+                    rbac_blocked=False,
+                )
+            )
 
-        return StreamingResponse(inference_stream(), media_type="text/event-stream")
+        async def final_stream():
+            yield result.response
+
+        return StreamingResponse(final_stream(), media_type="text/event-stream")
 
     return api
-
-
-def _build_prompt(query: str, tier, scopes: list[str], store: Optional[UnifiedStore]) -> str:
-    if store is None:
-        raise RuntimeError("Retrieval store is not configured")
-    searcher = HybridSearcher(store)
-    candidates = searcher.search(query, tier_rank(tier), repo_scope=scopes)
-    reranked = LexicalReranker().rerank(query, candidates, top_m=8)
-    system_rule = (
-        "You are a read-only codebase intelligence assistant. "
-        f"The authenticated user's access tier is {tier.value}. "
-        "Use only the provided retrieved summaries and do not infer inaccessible implementation details. "
-        "Do not answer by listing file paths, raw filenames, or copied source. "
-        "Summarize behavior in terms of symbols, responsibilities, and call relationships."
-    )
-    return PromptAssembler(system_rule).assemble(query, reranked)
-
 
 app = create_app()

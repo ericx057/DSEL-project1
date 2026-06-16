@@ -42,6 +42,9 @@ class UnifiedStore(ABC):
     ) -> List[Dict[str, Any]]:
         pass
 
+    def index_fingerprint(self, repo_scope: Optional[Sequence[str]] = None) -> str:
+        return "unknown-index"
+
 class InMemoryUnifiedStore(UnifiedStore):
     def __init__(self, data: List[Dict[str, Any]]):
         self.data = data
@@ -64,6 +67,17 @@ class InMemoryUnifiedStore(UnifiedStore):
         breadth: int = 50,
     ) -> List[Dict[str, Any]]:
         return [doc for doc in self.data if doc.get("tier", 0) <= user_tier]
+
+    def index_fingerprint(self, repo_scope: Optional[Sequence[str]] = None) -> str:
+        repo_set = set(repo_scope) if repo_scope is not None else None
+        rows = [doc for doc in self.data if repo_set is None or doc.get("repository") in repo_set]
+        payload = {
+            "count": len(rows),
+            "ids": sorted(str(doc.get("id", "")) for doc in rows),
+            "repos": sorted({str(doc.get("repository", "")) for doc in rows}),
+        }
+        raw = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -449,6 +463,26 @@ class SQLiteUnifiedStore(UnifiedStore):
 
     def warm_lexical_cache(self) -> None:
         self._ensure_lexical_cache()
+
+    def index_fingerprint(self, repo_scope: Optional[Sequence[str]] = None) -> str:
+        repo_sql, repo_params = self._repo_clause(repo_scope)
+        row = self._connection.execute(
+            f"""
+            SELECT COUNT(*) AS artifact_count,
+                   COALESCE(MAX(updated_at), 0) AS max_updated_at,
+                   COALESCE(GROUP_CONCAT(DISTINCT repository), '') AS repositories
+            FROM artifacts
+            WHERE 1=1{repo_sql}
+            """,
+            repo_params,
+        ).fetchone()
+        payload = {
+            "artifact_count": int(row["artifact_count"] if row else 0),
+            "max_updated_at": float(row["max_updated_at"] if row else 0),
+            "repositories": sorted((row["repositories"] or "").split(",")) if row else [],
+        }
+        raw = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def _ensure_path_cache(self) -> None:
         if self._path_cache is not None:

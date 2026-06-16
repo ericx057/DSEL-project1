@@ -15,7 +15,7 @@ from src.gateway.repositories import (
 from src.gateway.security import HS256JWTVerifier
 
 
-RESPONSE_CACHE_POLICY_VERSION = "response-policy-v2"
+RESPONSE_CACHE_POLICY_VERSION = "response-policy-v3"
 
 class CircuitBreaker:
     def __init__(self, failure_threshold: int = 3, recovery_timeout: int = 30):
@@ -71,34 +71,104 @@ class CacheService:
     def __init__(self, repository: CacheRepository):
         self.repository = repository
 
-    def _generate_key(self, query: str, tier: AccessTier, scopes: List[str]) -> str:
-        raw_key = f"{RESPONSE_CACHE_POLICY_VERSION}:{query}:{tier}:{','.join(sorted(scopes))}"
+    def _generate_key(
+        self,
+        query: str,
+        tier: AccessTier,
+        scopes: List[str],
+        response_mode: str = "answer",
+        model_id: str = "default-model",
+        index_fingerprint: str = "legacy-index",
+        policy_version: str = RESPONSE_CACHE_POLICY_VERSION,
+    ) -> str:
+        normalized_query = " ".join(query.strip().lower().split())
+        raw_key = ":".join(
+            [
+                policy_version,
+                normalized_query,
+                tier.value,
+                ",".join(sorted(scopes)),
+                response_mode,
+                model_id,
+                index_fingerprint,
+            ]
+        )
         return hashlib.sha256(raw_key.encode()).hexdigest()
 
-    async def get_cached_response(self, query: str, tier: AccessTier, scopes: List[str]) -> Optional[str]:
-        key = self._generate_key(query, tier, scopes)
+    async def get_cached_response(
+        self,
+        query: str,
+        tier: AccessTier,
+        scopes: List[str],
+        response_mode: str = "answer",
+        model_id: str = "default-model",
+        index_fingerprint: str = "legacy-index",
+    ) -> Optional[str]:
+        key = self._generate_key(query, tier, scopes, response_mode, model_id, index_fingerprint)
         return await self.repository.get(key)
 
-    async def set_cached_response(self, query: str, tier: AccessTier, scopes: List[str], response: str) -> None:
-        key = self._generate_key(query, tier, scopes)
+    async def set_cached_response(
+        self,
+        query: str,
+        tier: AccessTier,
+        scopes: List[str],
+        response: str,
+        response_mode: str = "answer",
+        model_id: str = "default-model",
+        index_fingerprint: str = "legacy-index",
+    ) -> None:
+        key = self._generate_key(query, tier, scopes, response_mode, model_id, index_fingerprint)
         ttl = 3600 if tier == AccessTier.T3 else 14400
         await self.repository.set(key, response, ttl)
 
-    async def acquire_lock(self, query: str, tier: AccessTier, scopes: List[str]) -> bool:
-        key = self._generate_key(query, tier, scopes)
+    async def acquire_lock(
+        self,
+        query: str,
+        tier: AccessTier,
+        scopes: List[str],
+        response_mode: str = "answer",
+        model_id: str = "default-model",
+        index_fingerprint: str = "legacy-index",
+    ) -> bool:
+        key = self._generate_key(query, tier, scopes, response_mode, model_id, index_fingerprint)
         return await self.repository.acquire_lock(key)
 
-    async def subscribe(self, query: str, tier: AccessTier, scopes: List[str]) -> AsyncGenerator[str, None]:
-        key = self._generate_key(query, tier, scopes)
+    async def subscribe(
+        self,
+        query: str,
+        tier: AccessTier,
+        scopes: List[str],
+        response_mode: str = "answer",
+        model_id: str = "default-model",
+        index_fingerprint: str = "legacy-index",
+    ) -> AsyncGenerator[str, None]:
+        key = self._generate_key(query, tier, scopes, response_mode, model_id, index_fingerprint)
         async for chunk in self.repository.subscribe(key):
             yield chunk
 
-    async def publish(self, query: str, tier: AccessTier, scopes: List[str], chunk: str) -> None:
-        key = self._generate_key(query, tier, scopes)
+    async def publish(
+        self,
+        query: str,
+        tier: AccessTier,
+        scopes: List[str],
+        chunk: str,
+        response_mode: str = "answer",
+        model_id: str = "default-model",
+        index_fingerprint: str = "legacy-index",
+    ) -> None:
+        key = self._generate_key(query, tier, scopes, response_mode, model_id, index_fingerprint)
         await self.repository.publish(key, chunk)
 
-    async def release_lock(self, query: str, tier: AccessTier, scopes: List[str]) -> None:
-        key = self._generate_key(query, tier, scopes)
+    async def release_lock(
+        self,
+        query: str,
+        tier: AccessTier,
+        scopes: List[str],
+        response_mode: str = "answer",
+        model_id: str = "default-model",
+        index_fingerprint: str = "legacy-index",
+    ) -> None:
+        key = self._generate_key(query, tier, scopes, response_mode, model_id, index_fingerprint)
         await self.repository.release_lock(key)
 
 class RateLimitService:

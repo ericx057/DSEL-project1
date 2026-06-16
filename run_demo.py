@@ -30,6 +30,7 @@ from src.gateway.repositories import (
 from src.gateway.security import HS256JWTVerifier
 from src.gateway.services import InMemorySemanticCacheRepository, TokenBucketRateLimitRepository
 from src.retrieval.context_summary import RetrievedContextSummarizer
+from src.harness.trace import SQLiteTraceRecorder
 
 
 @dataclass(frozen=True)
@@ -296,6 +297,7 @@ def build_app():
         retrieval_store=store,
         jwt_verifier=HS256JWTVerifier(secret, issuer="cis-local", audience="developers"),
         model_hook=model_hook,
+        trace_recorder=SQLiteTraceRecorder(data_dir / "traces.db"),
     )
 
     @app.get("/")
