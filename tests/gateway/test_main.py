@@ -127,9 +127,10 @@ async def test_cache_hit(test_app):
         assert response.status_code == 200
         body = response.json()
         assert body["cached"] is True
-        assert "Cached Answer" in body["response"]
+        assert "cached_answer is a Python function." in body["response"]
         assert "src/app/service.py" not in body["response"]
         assert "def cached_answer" not in body["response"]
+        assert "raw path dump" not in body["response"]
         assert audit_repo.events[0].cache_hit is True
 
 @pytest.mark.asyncio

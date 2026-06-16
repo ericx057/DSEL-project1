@@ -259,7 +259,7 @@ def test_local_inference_answer_generator_shapes_raw_model_output():
 
     answer = "".join(tokens)
     assert done == [None]
-    assert "Retrieved summaries:" in answer
+    assert "Service is a Python class tied to handle." in answer
     assert r"src\app\service.py" not in answer
     assert "class Service:" not in answer
     assert "def handle" not in answer

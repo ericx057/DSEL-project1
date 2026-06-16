@@ -37,6 +37,12 @@ class DemoContextBlock:
     summary: str
 
 
+@dataclass(frozen=True)
+class DemoTakeaway:
+    text: str
+    sufficient: bool
+
+
 class LocalDemoCompletionClient:
     CONTEXT_BLOCK_PATTERN = re.compile(
         r"^--- File: (?P<file>.*?) \| Language: (?P<language>.*?) \| Tier: (?P<tier>\d+) ---\n"
@@ -64,16 +70,17 @@ class LocalDemoCompletionClient:
     def create_response(self, prompt: str) -> str:
         query = self._extract_query(prompt)
         context_blocks = self._extract_context_blocks(prompt)
-        lines = [
-            f"I found relevant indexed context for: {query}",
-            "",
-        ]
-        if context_blocks:
-            lines.append("Most relevant evidence:")
-            for block in context_blocks:
-                lines.append(f"- {self._humanize_summary(block.summary)}")
+        if not context_blocks:
+            return f"No indexed context matched `{query}`."
+
+        takeaways = [self._takeaway_from_summary(block.summary) for block in context_blocks]
+        if any(takeaway.sufficient for takeaway in takeaways):
+            lines = [f"For `{query}`, the useful retrieved signals are:"]
         else:
-            lines.append("No indexed context matched this query.")
+            lines = [f"For `{query}`, the indexed context is too thin for a behavioral answer.", "", "What I can confirm:"]
+
+        for takeaway in takeaways:
+            lines.append(f"- {takeaway.text}")
         return "\n".join(lines)
 
     @staticmethod
@@ -140,30 +147,63 @@ class LocalDemoCompletionClient:
         return "class" if match.group(1) == "class" else "function"
 
     @staticmethod
-    def _humanize_summary(summary: str) -> str:
+    def _takeaway_from_summary(summary: str) -> DemoTakeaway:
         summary = re.sub(r"^\[\d+\]\s+", "", summary.strip())
         match = re.match(
             r"^(?P<symbol>.*?) \((?P<descriptors>.*?)\) - Mentions (?P<mentions>.*?)\.$",
             summary,
         )
         if not match:
-            return summary
+            return DemoTakeaway(summary, True)
         symbol = match.group("symbol").strip()
         descriptors = [part.strip() for part in match.group("descriptors").split(",") if part.strip()]
         kind = descriptors[0] if descriptors else "artifact"
-        language = descriptors[1] if len(descriptors) > 1 and not descriptors[1].startswith("lines ") else ""
+        language = LocalDemoCompletionClient._format_language(
+            descriptors[1] if len(descriptors) > 1 and not descriptors[1].startswith("lines ") else ""
+        )
         mentions = [
             value.strip()
             for value in match.group("mentions").split(",")
             if value.strip()
             and value.strip() != symbol
-            and value.strip().lower() not in {"pass", "cached", "context"}
+            and value.strip().lower() not in {"pass", "cached", "context", "value"}
         ]
-        language_text = f" in {language}" if language else ""
-        article = "an" if kind[:1].lower() in {"a", "e", "i", "o", "u"} else "a"
-        if mentions:
-            return f"{symbol} is {article} {kind}{language_text}; it is associated with {', '.join(mentions[:5])}."
-        return f"{symbol} is {article} {kind}{language_text}."
+
+        language_text = f"{language} " if language else ""
+        article = "an" if (language_text + kind)[:1].lower() in {"a", "e", "i", "o", "u"} else "a"
+        if not mentions:
+            return DemoTakeaway(
+                (
+                    f"{symbol} is {article} {language_text}{kind}. "
+                    f"The retrieved excerpt only identifies the {kind}; it does not show methods or behavior."
+                ),
+                False,
+            )
+
+        joined = LocalDemoCompletionClient._join_terms(mentions[:5])
+        return DemoTakeaway(f"{symbol} is {article} {language_text}{kind} tied to {joined}.", True)
+
+    @staticmethod
+    def _format_language(language: str) -> str:
+        names = {
+            "python": "Python",
+            "typescript": "TypeScript",
+            "javascript": "JavaScript",
+            "cpp": "C++",
+            "csharp": "C#",
+            "go": "Go",
+            "rust": "Rust",
+            "java": "Java",
+        }
+        return names.get(language.lower(), language)
+
+    @staticmethod
+    def _join_terms(terms: list[str]) -> str:
+        if len(terms) <= 1:
+            return terms[0] if terms else "no concrete behavior"
+        if len(terms) == 2:
+            return f"{terms[0]} and {terms[1]}"
+        return ", ".join(terms[:-1]) + f", and {terms[-1]}"
 
     def _chunks(self, response: str) -> list[str]:
         return [response[index:index + self.chunk_size] for index in range(0, len(response), self.chunk_size)]

@@ -9,18 +9,22 @@ class RetrievedContextSummarizer:
     _PATH_LIKE_RE = re.compile(r"(?i)(?:[A-Z]:[\\/]|(?:^|[\\/])|[A-Za-z0-9_.-]+[\\/]).*\.[A-Za-z0-9]{1,8}$")
     _STOPWORDS = {
         "and",
+        "answer",
         "bool",
         "class",
         "const",
         "context",
         "cached",
         "def",
+        "dump",
         "else",
         "false",
         "for",
         "if",
         "int",
         "pass",
+        "path",
+        "raw",
         "return",
         "self",
         "static",
@@ -146,35 +150,14 @@ class ResponseShaper:
         if not matches:
             return ""
 
-        chunks: List[Dict[str, Any]] = []
-        notes: List[str] = []
+        summaries: List[str] = []
         for index, match in enumerate(matches, start=1):
             language = match.group("language").strip()
             body = match.group("text")
             symbol, kind = self._symbol_and_kind_from_text(body)
-            chunks.append(
-                {
-                    "symbol_name": symbol,
-                    "kind": kind,
-                    "language": language,
-                    "line_start": 1,
-                    "line_end": max(1, body.count("\n") + 1),
-                    "text": body,
-                }
-            )
-            for line in body.splitlines():
-                note = self._clean_line(self._PATH_RE.sub(" ", line))
-                if not note or self._is_raw_code_line(note):
-                    continue
-                if note not in notes:
-                    notes.append(note)
-                if len(notes) >= 6:
-                    break
+            summaries.append(self._concrete_block_summary(symbol, kind, language, body))
 
-        parts = ["Retrieved summaries:", RetrievedContextSummarizer().summarize_chunks(chunks)]
-        if notes:
-            parts.extend(["Cached notes:", "\n".join(notes)])
-        return "\n".join(part for part in parts if part).strip()
+        return "\n".join(summary for summary in summaries if summary).strip()
 
     @staticmethod
     def _clean_line(line: str) -> str:
@@ -207,6 +190,52 @@ class ResponseShaper:
         declaration = match.group(1)
         kind = "class" if declaration == "class" else "function"
         return match.group(2), kind
+
+    @classmethod
+    def _concrete_block_summary(cls, symbol: str, kind: str, language: str, text: str) -> str:
+        formatted_language = cls._format_language(language)
+        language_text = f"{formatted_language} " if formatted_language else ""
+        article = "an" if (language_text + kind)[:1].lower() in {"a", "e", "i", "o", "u"} else "a"
+        terms = [
+            term
+            for term in cls._identifier_terms(text, symbol)
+            if term != symbol and term.lower() not in {"cached", "context", "pass", "value"}
+        ]
+        if terms:
+            return f"{symbol} is {article} {language_text}{kind} tied to {cls._join_terms(terms[:5])}."
+        return (
+            f"{symbol} is {article} {language_text}{kind}. "
+            f"The cached excerpt only identifies the {kind}; it does not show methods or behavior."
+        )
+
+    @classmethod
+    def _identifier_terms(cls, text: str, symbol: str) -> List[str]:
+        summary = RetrievedContextSummarizer._identifier_summary(text, symbol)
+        if not summary.startswith("Mentions ") or not summary.endswith("."):
+            return []
+        return [term.strip() for term in summary[len("Mentions ") : -1].split(",") if term.strip()]
+
+    @staticmethod
+    def _format_language(language: str) -> str:
+        names = {
+            "python": "Python",
+            "typescript": "TypeScript",
+            "javascript": "JavaScript",
+            "cpp": "C++",
+            "csharp": "C#",
+            "go": "Go",
+            "rust": "Rust",
+            "java": "Java",
+        }
+        return names.get(language.lower(), language)
+
+    @staticmethod
+    def _join_terms(terms: List[str]) -> str:
+        if len(terms) <= 1:
+            return terms[0] if terms else "no concrete behavior"
+        if len(terms) == 2:
+            return f"{terms[0]} and {terms[1]}"
+        return ", ".join(terms[:-1]) + f", and {terms[-1]}"
 
     @staticmethod
     def _is_path_list_shell(line: str) -> bool:

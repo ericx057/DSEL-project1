@@ -101,7 +101,7 @@ def test_response_shaper_summarizes_legacy_raw_file_blocks():
 
     shaped = ResponseShaper().shape(raw)
 
-    assert "Retrieved summaries:" in shaped
+    assert "Service is a Python class tied to handle and expensive_call." in shaped
     assert r"src\app\service.py" not in shaped
     assert "src/app/service.py" not in shaped
     assert "class Service:" not in shaped
@@ -109,6 +109,24 @@ def test_response_shaper_summarizes_legacy_raw_file_blocks():
     assert "value = expensive_call()" not in shaped
     assert "Service" in shaped
     assert "expensive_call" in shaped
+
+
+def test_response_shaper_explains_when_cached_context_is_declaration_only():
+    raw = "\n".join(
+        [
+            "--- File: src/ingestion/indexer.py | Language: python | Tier: 1 ---",
+            "class RepositoryIndexer:",
+            "    pass",
+        ]
+    )
+
+    shaped = ResponseShaper().shape(raw)
+
+    assert "RepositoryIndexer is a Python class." in shaped
+    assert "only identifies the class" in shaped
+    assert "does not show methods or behavior" in shaped
+    assert "src/ingestion/indexer.py" not in shaped
+    assert "class RepositoryIndexer:" not in shaped
 
 
 def test_response_shaper_removes_windows_relative_paths_from_cached_text():
