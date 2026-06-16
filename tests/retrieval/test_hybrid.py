@@ -1,5 +1,7 @@
 import pytest
-from retrieval.database import InMemoryUnifiedStore
+from pathlib import Path
+
+from retrieval.database import ArtifactRecord, HashingEmbeddingProvider, InMemoryUnifiedStore, SQLiteUnifiedStore
 from retrieval.hybrid import HybridSearcher
 
 @pytest.fixture
@@ -39,3 +41,50 @@ def test_hybrid_search_lambda_0(store):
     # Should only contain graph results
     ids = {r["id"] for r in results}
     assert ids == {"1", "2", "4"}
+
+
+def test_hybrid_search_includes_exact_symbol_lexical_hits_before_vector_noise(tmp_path: Path):
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+    store.upsert_artifacts(
+        [
+            ArtifactRecord(
+                artifact_id="repo-a:RepositoryIndexer",
+                repository="repo-a",
+                file_path="src/ingestion/indexer.py",
+                language="python",
+                text="class RepositoryIndexer",
+                tier=1,
+                fidelity="L-1",
+                symbol_name="RepositoryIndexer",
+                kind="class",
+                metadata={"qualified_name": "RepositoryIndexer"},
+            ),
+            ArtifactRecord(
+                artifact_id="repo-a:unrelated-test",
+                repository="repo-a",
+                file_path="tests/test_window.py",
+                language="python",
+                text="def test_window_visible(): pass",
+                tier=1,
+                fidelity="L-1",
+                symbol_name="test_window_visible",
+                kind="function",
+            ),
+            ArtifactRecord(
+                artifact_id="repo-a:RepositoryIndexer._is_json_document",
+                repository="repo-a",
+                file_path="src/ingestion/indexer.py",
+                language="python",
+                text="def _is_json_document(cls, path, content)",
+                tier=1,
+                fidelity="L-1",
+                symbol_name="_is_json_document",
+                kind="method",
+                metadata={"qualified_name": "RepositoryIndexer._is_json_document"},
+            ),
+        ]
+    )
+
+    results = HybridSearcher(store).search("What does RepositoryIndexer do?", user_tier=1, repo_scope=["repo-a"])
+
+    assert results[0]["id"] == "repo-a:RepositoryIndexer"

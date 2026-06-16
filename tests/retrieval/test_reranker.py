@@ -143,3 +143,37 @@ def test_lexical_reranker_boosts_generic_path_tokens_and_light_stems():
     ranked = reranker.rerank("Which validation script checks the version string?", chunks, top_m=3)
 
     assert {item["id"] for item in ranked[:2]} == {"script", "version"}
+
+
+def test_lexical_reranker_prefers_exact_class_for_named_class_query():
+    reranker = LexicalReranker()
+    chunks = [
+        {
+            "id": "class",
+            "file_path": "src/ingestion/indexer.py",
+            "symbol_name": "RepositoryIndexer",
+            "kind": "class",
+            "text": "class RepositoryIndexer",
+            "metadata": {"qualified_name": "RepositoryIndexer"},
+        },
+        {
+            "id": "method",
+            "file_path": "src/ingestion/indexer.py",
+            "symbol_name": "_is_json_document",
+            "kind": "method",
+            "text": "def _is_json_document(cls, path, content)",
+            "metadata": {"qualified_name": "RepositoryIndexer._is_json_document"},
+        },
+        {
+            "id": "test-noise",
+            "file_path": "tests/test_window.py",
+            "symbol_name": "test_window_visible",
+            "kind": "function",
+            "text": "def test_window_visible(): pass",
+            "metadata": {"qualified_name": "test_window_visible"},
+        },
+    ]
+
+    ranked = reranker.rerank("What does RepositoryIndexer do?", chunks, top_m=3)
+
+    assert ranked[0]["id"] == "class"
