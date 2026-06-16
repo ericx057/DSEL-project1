@@ -142,6 +142,109 @@ def test_policy_fallback_does_not_dilute_class_implementation_summary():
     assert "only identifies the class" not in decision.response
 
 
+def test_policy_replaces_artifact_label_implementation_answer():
+    packet = RetrievalPacket(
+        artifacts=[
+            {
+                "id": "repo-a:indexer-impl",
+                "repository": "repo-a",
+                "file_path": "src/ingestion/indexer.py",
+                "language": "python",
+                "kind": "class-implementation",
+                "symbol_name": "RepositoryIndexer",
+                "text": "class RepositoryIndexer index_repository _iter_files _is_excluded",
+                "tier": 3,
+                "metadata": {"qualified_name": "RepositoryIndexer"},
+            }
+        ],
+        summaries=[
+            "[1] RepositoryIndexer (class-implementation, python, lines 1-40) - Mentions RepositoryIndexer, index_repository, _iter_files, _is_excluded."
+        ],
+        timings_ms={},
+        index_fingerprint="fp-1",
+        policy_version="response-policy-v3",
+    )
+
+    decision = ResponsePolicy().apply(
+        "For `What does RepositoryIndexer do?`, the useful retrieved signals are:\n"
+        "- RepositoryIndexer is a Python class-implementation tied to index_repository and _iter_files.",
+        _task("What does RepositoryIndexer do?"),
+        packet,
+    )
+
+    assert decision.accepted is False
+    assert "RepositoryIndexer's retrieved implementation indexes repositories" in decision.response
+    assert "class-implementation tied to" not in decision.response
+
+
+def test_policy_replaces_inference_error_with_retrieval_fallback():
+    packet = RetrievalPacket(
+        artifacts=[
+            {
+                "id": "repo-a:indexer-impl",
+                "repository": "repo-a",
+                "file_path": "src/ingestion/indexer.py",
+                "language": "python",
+                "kind": "class-implementation",
+                "symbol_name": "RepositoryIndexer",
+                "text": "class RepositoryIndexer index_repository _iter_files _is_excluded",
+                "tier": 3,
+                "metadata": {"qualified_name": "RepositoryIndexer"},
+            }
+        ],
+        summaries=[
+            "[1] RepositoryIndexer (class-implementation, python, lines 1-40) - Mentions RepositoryIndexer, index_repository, _iter_files, _is_excluded."
+        ],
+        timings_ms={},
+        index_fingerprint="fp-1",
+        policy_version="response-policy-v3",
+    )
+
+    decision = ResponsePolicy().apply(
+        "\n[Inference Error: local inference engine unavailable]",
+        _task("What does RepositoryIndexer do?"),
+        packet,
+    )
+
+    assert decision.accepted is False
+    assert decision.source == "fallback"
+    assert "RepositoryIndexer's retrieved implementation indexes repositories" in decision.response
+    assert "Inference Error" not in decision.response
+
+
+def test_policy_fallback_hides_method_implementation_label():
+    packet = RetrievalPacket(
+        artifacts=[
+            {
+                "id": "repo-a:generic-symbols",
+                "repository": "repo-a",
+                "file_path": "src/parsers/generic_symbols.py",
+                "language": "python",
+                "kind": "method-implementation",
+                "symbol_name": "_symbols",
+                "text": "def _symbols(self, lines, language): return parse_typescript_go_rust_symbols(lines, language)",
+                "tier": 3,
+                "metadata": {"qualified_name": "GenericSymbolParser._symbols"},
+            }
+        ],
+        summaries=[
+            "[1] _symbols (method-implementation, python, lines 1-20) - Mentions _symbols, lines, language, parse_typescript_go_rust_symbols."
+        ],
+        timings_ms={},
+        index_fingerprint="fp-1",
+        policy_version="response-policy-v3",
+    )
+
+    decision = ResponsePolicy().apply(
+        "def _symbols(self, lines, language):\n    return []",
+        _task("How does GenericSymbolParser handle TypeScript or Go symbols?"),
+        packet,
+    )
+
+    assert "_symbols is a Python method tied to lines, language, and parse_typescript_go_rust_symbols." in decision.response
+    assert "method-implementation" not in decision.response
+
+
 def test_policy_explains_thin_declaration_only_evidence():
     packet = _packet("[1] RepositoryIndexer (class, python, lines 1-2) - Mentions RepositoryIndexer.")
 
@@ -188,6 +291,34 @@ def test_policy_no_hits_ignores_unrelated_retrieval_noise():
     assert decision.source == "fallback"
     assert decision.response == "No indexed context matched `How does the payout settlement engine work?`."
     assert "RetrievalEngine" not in decision.response
+
+
+def test_policy_no_hits_ignores_generic_engine_class_overlap():
+    packet = RetrievalPacket(
+        artifacts=[
+            {
+                "id": "repo-a:retrieval-engine",
+                "repository": "repo-a",
+                "file_path": "demo.py",
+                "language": "python",
+                "kind": "class",
+                "symbol_name": "RetrievalEngine",
+                "text": "class RetrievalEngine: def search(self, query): pass",
+                "tier": 1,
+                "metadata": {"qualified_name": "RetrievalEngine"},
+            }
+        ],
+        summaries=[
+            "[1] RetrievalEngine (class, python, lines 1-5) - Mentions RetrievalEngine, search, query."
+        ],
+        timings_ms={},
+        index_fingerprint="fp-1",
+        policy_version="response-policy-v3",
+    )
+
+    decision = ResponsePolicy().apply("", _task("How does the payout settlement engine work?"), packet)
+
+    assert decision.response == "No indexed context matched `How does the payout settlement engine work?`."
 
 
 def test_policy_fallback_filters_unrelated_retrieved_artifacts():

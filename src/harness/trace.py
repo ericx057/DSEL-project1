@@ -44,6 +44,9 @@ class InMemoryTraceRecorder:
     def record(self, record: TraceRecord) -> None:
         self.records.append(record)
 
+    def health_check(self) -> bool:
+        return True
+
 
 class SQLiteTraceRecorder:
     def __init__(self, db_path: str | Path):
@@ -82,6 +85,10 @@ class SQLiteTraceRecorder:
                     record.created_at,
                 ),
             )
+
+    def health_check(self) -> bool:
+        self._connection.execute("SELECT 1").fetchone()
+        return True
 
     def _init_schema(self) -> None:
         with self._connection:

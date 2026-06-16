@@ -397,12 +397,18 @@
     async function submitQuery() {
       const query = els.query.value.trim();
       if (!query) return;
+      if (!authHeaders().Authorization) {
+        const answer = renderTurn(query, 'Add a bearer token before submitting a query.');
+        answer.classList.add('error');
+        return;
+      }
       els.submit.disabled = true;
       const answer = renderTurn(query, '');
       els.query.value = '';
 
       const body = {
-        query: `${state.depth}: ${query}`,
+        query,
+        response_mode: state.depth,
         diagram_requested: els.diagram.checked
       };
 
@@ -412,7 +418,7 @@
           headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify(body)
         });
-        if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+        if (!response.ok) throw new Error(await responseErrorMessage(response));
         const contentType = response.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const data = await response.json();
@@ -435,6 +441,20 @@
       } finally {
         els.submit.disabled = false;
       }
+    }
+
+    async function responseErrorMessage(response) {
+      const text = await response.text();
+      try {
+        const payload = JSON.parse(text);
+        if (Array.isArray(payload.detail)) {
+          return payload.detail.map(item => item.msg || String(item)).join('; ');
+        }
+        if (payload.detail) return String(payload.detail);
+      } catch (_) {
+        // Fall back to the raw response body below.
+      }
+      return text ? `HTTP ${response.status}: ${text}` : `HTTP ${response.status}`;
     }
 
     async function loadDiagram(query) {

@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from src.gateway.main import create_app
+from src.gateway.main import create_app, global_circuit_breaker
 from src.gateway.models import AccessTier, QueryRequest
 from src.gateway.repositories import (
     SQLiteAccessMatrixRepository,
@@ -84,13 +84,15 @@ async def test_production_query_flow_retrieves_before_inference_and_logs(tmp_pat
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/query",
-            json={"query": "public api secret"},
+            json={"query": "public api secret", "response_mode": "deep"},
             headers={"Authorization": f"Bearer {token}"},
         )
 
     assert response.status_code == 200
     assert response.text == "answer"
     assert "Retrieved summaries:" in model_hook.prompts[0]
+    assert "Query: public api secret" in model_hook.prompts[0]
+    assert "Give a detailed explanation" in model_hook.prompts[0]
     assert "public_api" in model_hook.prompts[0]
     assert "Do not answer by listing file paths" in model_hook.prompts[0]
     assert "def public_api()" not in model_hook.prompts[0]
@@ -108,6 +110,14 @@ def test_query_request_rejects_model_override():
         assert False
     except ValueError as exc:
         assert "override_model" in str(exc)
+
+
+def test_query_request_rejects_unknown_response_mode():
+    try:
+        QueryRequest(query="public api", response_mode="benchmark-special")
+        assert False
+    except ValueError as exc:
+        assert "response_mode" in str(exc)
 
 
 @pytest.mark.asyncio
@@ -162,3 +172,73 @@ async def test_query_without_authorized_scope_is_blocked_and_audited(tmp_path: P
 
     assert response.status_code == 403
     assert audit.list_events()[0].rbac_blocked is True
+
+
+@pytest.mark.asyncio
+async def test_query_uses_retrieval_fallback_when_circuit_breaker_is_open(tmp_path: Path):
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+    store.upsert_artifacts(
+        [
+            ArtifactRecord(
+                "repo-a:indexer",
+                "repo-a",
+                "indexer.py",
+                "python",
+                "class RepositoryIndexer index_repository _iter_files _index_file upsert_artifacts",
+                3,
+                "L-1",
+                "RepositoryIndexer",
+                kind="class-implementation",
+            )
+        ]
+    )
+    access = SQLiteAccessMatrixRepository(tmp_path / "access.db")
+    access.set_user_tier("user-1", AccessTier.T3)
+    scopes = SQLiteScopeRepository(tmp_path / "access.db")
+    scopes.grant_group_scope("platform", "repo-a")
+    audit = SQLiteAuditRepository(tmp_path / "audit.db")
+
+    class UnavailableModelHook(ModelHook):
+        def __init__(self):
+            self.inference_engine_id = "unavailable-engine"
+
+        async def generate_stream(self, prompt: str):
+            yield "\n[Inference Error: local inference engine unavailable]"
+
+    token = _token(
+        {
+            "sub": "user-1",
+            "groups": ["platform"],
+            "iss": "cis",
+            "aud": "developers",
+            "exp": int(time.time()) + 60,
+        }
+    )
+    app = create_app(
+        access_matrix_repo=access,
+        scope_repo=scopes,
+        cache_repo=InMemorySemanticCacheRepository(),
+        rate_limit_repo=TokenBucketRateLimitRepository(),
+        audit_repo=audit,
+        retrieval_store=store,
+        model_hook=UnavailableModelHook(),
+        jwt_verifier=HS256JWTVerifier("secret", issuer="cis", audience="developers"),
+    )
+    global_circuit_breaker.state = "OPEN"
+    global_circuit_breaker.failure_count = 3
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post(
+                "/query",
+                json={"query": "What does RepositoryIndexer do?"},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+    finally:
+        global_circuit_breaker.state = "CLOSED"
+        global_circuit_breaker.failure_count = 0
+
+    assert response.status_code == 200
+    assert "RepositoryIndexer's retrieved implementation indexes repositories" in response.text
+    assert "Inference Error" not in response.text
+    assert audit.list_events()[0].cache_hit is False

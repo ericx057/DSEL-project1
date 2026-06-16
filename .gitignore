@@ -1,7 +1,14 @@
 plans/domain1-implementation.md
 .cis/
+.pytest_cache/
 __pycache__/
 *.pyc
 .coverage
 observability/metrics-token
 graphify-out/
+cache/
+freecad-src/
+models/
+results/harness-eval-*/
+results/eval-run-*.err.log
+results/eval-run-*.out.log

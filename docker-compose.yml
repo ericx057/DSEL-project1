@@ -5,7 +5,7 @@ services:
       - "8000:8000"
     environment:
       CIS_DATA_DIR: /data
-      CIS_REPOSITORY_NAME: project1
+      CIS_REPOSITORY_NAME: ${CIS_REPOSITORY_NAME:-project1}
       CIS_REPOSITORY_PATH: /repos/project1
       CIS_JWT_SECRET: ${CIS_JWT_SECRET:?set CIS_JWT_SECRET}
       CIS_JWT_ISSUER: ${CIS_JWT_ISSUER:-cis}
@@ -20,8 +20,16 @@ services:
     volumes:
       - cis-data:/data
     depends_on:
-      - redis
-      - llamacpp
+      redis:
+        condition: service_healthy
+      llamacpp:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
 
   indexer:
     build: .
@@ -43,6 +51,11 @@ services:
     image: redis:7-alpine
     expose:
       - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   llamacpp:
     image: ${CIS_LLAMA_CPP_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda}
@@ -63,6 +76,12 @@ services:
     volumes:
       - ${CIS_LLAMA_CPP_MODELS_DIR:-./models}:/models:ro
       - ./scripts/llamacpp-entrypoint.sh:/entrypoint/llamacpp-entrypoint.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     deploy:
       resources:
         reservations:

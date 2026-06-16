@@ -242,6 +242,9 @@ class InMemorySemanticCacheRepository(CacheRepository):
         for queue in queues:
             await queue.put(None)
 
+    async def ping(self) -> bool:
+        return True
+
 
 class TokenBucketRateLimitRepository(RateLimitRepository):
     def __init__(self, capacity: int = 20, refill_per_minute: int = 20):
@@ -303,6 +306,9 @@ class RedisSemanticCacheRepository(CacheRepository):
     async def release_lock(self, key: str) -> None:
         await self.client.publish(self._channel_key(key), "__END__")
         await self.client.delete(self._lock_key(key))
+
+    async def ping(self) -> bool:
+        return bool(await self.client.ping())
 
     @staticmethod
     def _cache_key(key: str) -> str:

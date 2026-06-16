@@ -87,6 +87,9 @@ class ModelHook:
         self.circuit_breaker = circuit_breaker
 
     async def generate_stream(self, prompt: str) -> AsyncGenerator[str, None]:
+        if self.circuit_breaker and not self.circuit_breaker.is_allowed():
+            yield "\n[Inference Error: local inference engine unavailable]"
+            return
         try:
             async for chunk in self.client.text_generation(
                 prompt,

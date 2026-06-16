@@ -126,7 +126,8 @@ class HarnessService:
             f"The authenticated user's access tier is {task.access_tier.value}. "
             "Use only the provided retrieved summaries and do not infer inaccessible implementation details. "
             "Do not answer by listing file paths, raw filenames, or copied source. "
-            "Summarize behavior in terms of symbols, responsibilities, and call relationships."
+            "Summarize behavior in terms of symbols, responsibilities, and call relationships. "
+            f"{self._response_mode_instruction(task.response_mode)}"
         )
         return PromptAssembler(system_rule, self.summarizer).assemble(task.query, packet.artifacts)
 
@@ -261,3 +262,11 @@ class HarnessService:
     @staticmethod
     def _normalize_query(query: str) -> str:
         return " ".join(query.strip().lower().split())
+
+    @staticmethod
+    def _response_mode_instruction(response_mode: str) -> str:
+        if response_mode == "deep":
+            return "Give a detailed explanation with the main evidence and caveats."
+        if response_mode == "paragraph":
+            return "Answer in one or two concise paragraphs."
+        return "Answer in a short, direct summary."

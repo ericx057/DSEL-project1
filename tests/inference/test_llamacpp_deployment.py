@@ -6,8 +6,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def _service_section(compose_text: str, service_name: str) -> str:
     marker = f"  {service_name}:"
-    start = compose_text.index(marker)
-    lines = compose_text[start:].splitlines()
+    all_lines = compose_text.splitlines()
+    start_index = next(index for index, line in enumerate(all_lines) if line == marker)
+    lines = all_lines[start_index:]
     section = []
     for index, line in enumerate(lines):
         if index > 0 and line.startswith("  ") and not line.startswith("    "):

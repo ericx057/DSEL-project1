@@ -4,7 +4,11 @@
 .cis
 __pycache__
 *.pyc
+.pytest_cache
 .coverage
+cache
+results
+freecad-src
 tests
 plans
 run_demo.py

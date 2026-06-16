@@ -51,6 +51,21 @@ async def test_model_hook_failure():
 
 
 @pytest.mark.asyncio
+async def test_model_hook_skips_backend_when_circuit_breaker_is_open():
+    cb = CircuitBreaker(failure_threshold=1)
+    cb.record_failure()
+    client = RecordingEngineClient()
+    hook = ModelHook(circuit_breaker=cb, client=client)
+
+    chunks = []
+    async for chunk in hook.generate_stream("test prompt"):
+        chunks.append(chunk)
+
+    assert chunks == ["\n[Inference Error: local inference engine unavailable]"]
+    assert client.prompts == []
+
+
+@pytest.mark.asyncio
 async def test_llamacpp_completion_client_posts_to_native_completion_endpoint_without_model(monkeypatch):
     requests = []
 

@@ -16,6 +16,7 @@ class QueryRequest(BaseModel):
 
     query: str
     diagram_requested: bool = False
+    response_mode: str = Field(default="summary", pattern="^(summary|paragraph|deep)$")
 
 class AuditEvent(BaseModel):
     user_id: str

@@ -35,6 +35,7 @@ class ResponsePolicy:
         r"template|namespace|public:|private:|protected:|[A-Za-z_:<>~*&\s]+\([^)]*\)\s*(?:const)?\s*[;{])",
         re.MULTILINE,
     )
+    _INFERENCE_ERROR_RE = re.compile(r"\[Inference Error:.*?\]", re.IGNORECASE)
     _SUMMARY_RE = re.compile(
         r"^(?:\[\d+\]\s+)?(?P<symbol>.*?) \((?P<descriptors>.*?)\) - "
         r"(?P<body>Mentions (?P<mentions>.*?)\.|No salient identifiers extracted\.)$"
@@ -46,6 +47,7 @@ class ResponsePolicy:
         "are",
         "do",
         "does",
+        "engine",
         "for",
         "from",
         "handle",
@@ -70,6 +72,10 @@ class ResponsePolicy:
         r"(?:(?:Python|TypeScript|JavaScript|C\+\+|C#|Go|Rust|Java) )?"
         r"(?:class|function|method|artifact)"
         r"(?: in (?:Python|TypeScript|JavaScript|C\+\+|C#|Go|Rust|Java))?\.?\s*$",
+        re.IGNORECASE,
+    )
+    _ARTIFACT_LABEL_RE = re.compile(
+        r"\b(?:class|struct|interface|method|function)-implementation tied to\b",
         re.IGNORECASE,
     )
     _GENERIC_UNUSABLE = "The cached response matched code artifacts but did not contain a usable behavioral summary."
@@ -115,7 +121,9 @@ class ResponsePolicy:
         if (
             not shaped
             or shaped == self._GENERIC_UNUSABLE
+            or self._is_inference_error(shaped)
             or self._is_abstract_answer(shaped, packet)
+            or self._is_artifact_label_answer(shaped)
             or "path_leak" in flags
             or "raw_code" in flags
             or self._is_path_list_shell(model_output)
@@ -200,6 +208,14 @@ class ResponsePolicy:
         if any(self._takeaway_from_summary(summary).sufficient for summary in packet.summaries):
             return True
         return bool(packet.artifacts or packet.summaries)
+
+    @classmethod
+    def _is_artifact_label_answer(cls, shaped: str) -> bool:
+        return bool(cls._ARTIFACT_LABEL_RE.search(shaped))
+
+    @classmethod
+    def _is_inference_error(cls, shaped: str) -> bool:
+        return bool(cls._INFERENCE_ERROR_RE.search(shaped))
 
     @classmethod
     def _has_abstract_declaration_line(cls, shaped: str) -> bool:
@@ -392,6 +408,7 @@ class ResponsePolicy:
         symbol = match.group("symbol").strip()
         descriptors = [part.strip() for part in match.group("descriptors").split(",") if part.strip()]
         kind = descriptors[0] if descriptors else "artifact"
+        display_kind = kind.removesuffix("-implementation")
         language = self._format_language(
             descriptors[1] if len(descriptors) > 1 and not descriptors[1].startswith("lines ") else ""
         )
@@ -404,12 +421,12 @@ class ResponsePolicy:
             and value.strip().lower() not in {item.lower() for item in self._IGNORED_MENTIONS}
         ]
         language_text = f"{language} " if language else ""
-        article = self._article(language_text + kind)
+        article = self._article(language_text + display_kind)
         if not mentions:
             return _Takeaway(
                 (
-                    f"{symbol} is {article} {language_text}{kind}. "
-                    f"The retrieved excerpt only identifies the {kind}; it does not show methods or behavior."
+                    f"{symbol} is {article} {language_text}{display_kind}. "
+                    f"The retrieved excerpt only identifies the {display_kind}; it does not show methods or behavior."
                 ),
                 False,
             )
@@ -421,7 +438,7 @@ class ResponsePolicy:
                     True,
                 )
         return _Takeaway(
-            f"{symbol} is {article} {language_text}{kind} tied to {self._join_terms(mentions[:5])}.",
+            f"{symbol} is {article} {language_text}{display_kind} tied to {self._join_terms(mentions[:5])}.",
             True,
         )
 

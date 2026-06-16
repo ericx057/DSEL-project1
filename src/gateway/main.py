@@ -4,12 +4,13 @@ import time
 from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, Query
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from src.retrieval.database import UnifiedStore
 from src.diagram.service import DiagramService
 from src.gateway.model_hook import ModelHook
 from src.gateway.models import AuditEvent, HistoryRecord, QueryRequest
+from src.gateway.readiness import ReadinessProbe
 from src.gateway.repositories import (
     AccessMatrixRepository,
     AuditRepository,
@@ -153,6 +154,20 @@ def create_app(
     async def health():
         return {"status": "ok"}
 
+    @api.get("/ready")
+    async def ready(
+        cache_repo: CacheRepository = Depends(get_cache_repo),
+        store: Optional[UnifiedStore] = Depends(get_retrieval_store),
+        trace_recorder: TraceRecorder = Depends(get_trace_recorder),
+    ):
+        report = await ReadinessProbe(
+            store=store,
+            cache=cache_repo,
+            trace_recorder=trace_recorder,
+            circuit_breaker=global_circuit_breaker,
+        ).check()
+        return JSONResponse(report.to_dict(), status_code=200 if report.ok else 503)
+
     @api.get("/history")
     async def history_endpoint(
         authorization: str = Header(...),
@@ -221,7 +236,6 @@ def create_app(
     ):
         start_time = time.time()
         user = iam.decode_token(authorization)
-        rate_limit.check_circuit_breaker()
         await rate_limit.check_rate_limit(user.id)
 
         tier = await iam.get_tier(user.id)
@@ -252,7 +266,7 @@ def create_app(
             access_tier=tier,
             repo_scopes=scopes,
             model_id=inference_engine_used,
-            response_mode="answer",
+            response_mode=request.response_mode,
             stream=True,
         )
         result = await HarnessService(
