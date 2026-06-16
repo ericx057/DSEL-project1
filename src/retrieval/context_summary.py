@@ -12,12 +12,15 @@ class RetrievedContextSummarizer:
         "bool",
         "class",
         "const",
+        "context",
+        "cached",
         "def",
         "else",
         "false",
         "for",
         "if",
         "int",
+        "pass",
         "return",
         "self",
         "static",
@@ -25,6 +28,7 @@ class RetrievedContextSummarizer:
         "the",
         "this",
         "true",
+        "value",
         "void",
         "while",
     }
@@ -119,14 +123,23 @@ class ResponseShaper:
         if legacy_summary:
             return legacy_summary
         shaped = self._FILE_HEADER_RE.sub("", stripped)
-        shaped = self._PATH_RE.sub(" ", shaped)
-        shaped = self._RAW_CODE_RE.sub("", shaped)
         shaped = shaped.replace("```", "")
-        shaped = "\n".join(self._clean_line(line) for line in shaped.splitlines() if line.strip())
+        shaped_lines = []
+        for line in shaped.splitlines():
+            path_stripped = self._PATH_RE.sub(" ", line)
+            cleaned = self._clean_line(path_stripped)
+            if not cleaned:
+                continue
+            if self._is_path_list_shell(cleaned):
+                continue
+            if self._is_raw_code_line(cleaned) or self._is_vacuous_reference_line(cleaned):
+                continue
+            shaped_lines.append(cleaned)
+        shaped = "\n".join(shaped_lines)
         shaped = re.sub(r"\n{3,}", "\n\n", shaped).strip()
-        if shaped:
+        if shaped and not self._is_useless_fragment(shaped):
             return shaped
-        return "The retrieved artifacts matched, but the cached response did not contain a usable summary."
+        return "The cached response matched code artifacts but did not contain a usable behavioral summary."
 
     def _shape_legacy_file_blocks(self, text: str) -> str:
         matches = list(self._LEGACY_FILE_BLOCK_RE.finditer(text))
@@ -138,10 +151,11 @@ class ResponseShaper:
         for index, match in enumerate(matches, start=1):
             language = match.group("language").strip()
             body = match.group("text")
+            symbol, kind = self._symbol_and_kind_from_text(body)
             chunks.append(
                 {
-                    "symbol_name": "",
-                    "kind": "cached artifact",
+                    "symbol_name": symbol,
+                    "kind": kind,
                     "language": language,
                     "line_start": 1,
                     "line_end": max(1, body.count("\n") + 1),
@@ -173,10 +187,55 @@ class ResponseShaper:
             return True
         if cls._RAW_CODE_RE.match(stripped):
             return True
+        if re.match(r"^[A-Za-z_][A-Za-z0-9_:]*:$", stripped):
+            return True
+        if re.match(r"^[A-Za-z_][A-Za-z0-9_:.\->]*\s*\([^)]*\)\s*:?$", stripped):
+            return True
         if stripped in {"{", "}", "};"}:
             return True
         if re.match(r"^[A-Za-z_][A-Za-z0-9_]*\s*=", stripped):
             return True
         if re.match(r"^[A-Za-z_][A-Za-z0-9_:.\->]*\s*\([^)]*\)\s*;?$", stripped):
+            return True
+        return False
+
+    @staticmethod
+    def _symbol_and_kind_from_text(text: str) -> tuple[str, str]:
+        match = re.search(r"^\s*(class|def|async\s+def)\s+([A-Za-z_][A-Za-z0-9_]*)", text, re.MULTILINE)
+        if not match:
+            return "cached context", "artifact"
+        declaration = match.group(1)
+        kind = "class" if declaration == "class" else "function"
+        return match.group(2), kind
+
+    @staticmethod
+    def _is_path_list_shell(line: str) -> bool:
+        lowered = line.lower().strip()
+        return lowered in {
+            "-",
+            "*",
+            "relevant files:",
+            "files:",
+            "source files:",
+            "sources:",
+            "paths:",
+            "file paths:",
+        }
+
+    @staticmethod
+    def _is_vacuous_reference_line(line: str) -> bool:
+        lowered = line.lower().strip(" .:")
+        return lowered in {
+            "answer comes from",
+            "the answer comes from",
+            "see",
+            "from",
+            "in",
+        }
+
+    @staticmethod
+    def _is_useless_fragment(text: str) -> bool:
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if not lines:
             return True
         return False

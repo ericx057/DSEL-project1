@@ -119,3 +119,33 @@ def test_response_shaper_removes_windows_relative_paths_from_cached_text():
     assert r"src\gateway\main.py" not in shaped
     assert r"tests\gateway\test_main.py" not in shaped
     assert "Service handles it." in shaped
+
+
+def test_response_shaper_removes_path_list_shells_not_just_paths():
+    shaped = ResponseShaper().shape(
+        "\n".join(
+            [
+                "Relevant files:",
+                "- src/app/service.py",
+                "- tests/test_service.py",
+                "Service handles checkout validation and retries.",
+            ]
+        )
+    )
+
+    assert shaped == "Service handles checkout validation and retries."
+
+
+def test_response_shaper_rejects_raw_code_residue_without_summary():
+    shaped = ResponseShaper().shape(
+        "\n".join(
+            [
+                r"Answer comes from src\gateway\main.py",
+                "class Service:",
+                "    def handle(self):",
+                "        return value",
+            ]
+        )
+    )
+
+    assert shaped == "The cached response matched code artifacts but did not contain a usable behavioral summary."

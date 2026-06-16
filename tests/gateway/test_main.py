@@ -213,4 +213,4 @@ async def test_coalesced_subscriber_buffers_before_shaping(test_app):
     assert "way\\main.py" not in response.text
     assert "class Service:" not in response.text
     assert "def handle" not in response.text
-    assert "Answer comes from" in response.text
+    assert response.text == "The cached response matched code artifacts but did not contain a usable behavioral summary."

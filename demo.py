@@ -117,6 +117,7 @@ class RetrievedContextSummarizer:
         "for",
         "if",
         "int",
+        "pass",
         "return",
         "self",
         "static",
@@ -124,6 +125,7 @@ class RetrievedContextSummarizer:
         "the",
         "this",
         "true",
+        "value",
         "void",
         "while",
     }

@@ -65,23 +65,15 @@ class LocalDemoCompletionClient:
         query = self._extract_query(prompt)
         context_blocks = self._extract_context_blocks(prompt)
         lines = [
-            "Local demo response",
-            "",
-            f"Query: {query}",
+            f"I found relevant indexed context for: {query}",
             "",
         ]
         if context_blocks:
-            lines.append("Retrieved summaries:")
+            lines.append("Most relevant evidence:")
             for block in context_blocks:
-                lines.append(f"- {block.summary}")
+                lines.append(f"- {self._humanize_summary(block.summary)}")
         else:
             lines.append("No indexed context matched this query.")
-        lines.extend(
-            [
-                "",
-                "Generated locally from indexed retrieval context so the demo does not require an external inference server.",
-            ]
-        )
         return "\n".join(lines)
 
     @staticmethod
@@ -105,11 +97,11 @@ class LocalDemoCompletionClient:
             seen.add(file_path)
             summary = summarizer.summarize_chunk(
                 {
-                    "symbol_name": Path(file_path).stem,
+                    "symbol_name": self._symbol_from_legacy_block(file_path, match.group("text")),
                     "language": match.group("language"),
                     "tier": match.group("tier"),
                     "text": match.group("text"),
-                    "kind": "artifact",
+                    "kind": self._kind_from_legacy_block(match.group("text")),
                 },
                 len(blocks) + 1,
             )
@@ -132,6 +124,46 @@ class LocalDemoCompletionClient:
             if len(lines) >= self.max_preview_lines:
                 break
         return lines
+
+    @staticmethod
+    def _symbol_from_legacy_block(file_path: str, text: str) -> str:
+        match = re.search(r"^\s*(?:class|def|async\s+def)\s+([A-Za-z_][A-Za-z0-9_]*)", text, re.MULTILINE)
+        if match:
+            return match.group(1)
+        return Path(file_path).stem
+
+    @staticmethod
+    def _kind_from_legacy_block(text: str) -> str:
+        match = re.search(r"^\s*(class|def|async\s+def)\s+[A-Za-z_][A-Za-z0-9_]*", text, re.MULTILINE)
+        if not match:
+            return "artifact"
+        return "class" if match.group(1) == "class" else "function"
+
+    @staticmethod
+    def _humanize_summary(summary: str) -> str:
+        summary = re.sub(r"^\[\d+\]\s+", "", summary.strip())
+        match = re.match(
+            r"^(?P<symbol>.*?) \((?P<descriptors>.*?)\) - Mentions (?P<mentions>.*?)\.$",
+            summary,
+        )
+        if not match:
+            return summary
+        symbol = match.group("symbol").strip()
+        descriptors = [part.strip() for part in match.group("descriptors").split(",") if part.strip()]
+        kind = descriptors[0] if descriptors else "artifact"
+        language = descriptors[1] if len(descriptors) > 1 and not descriptors[1].startswith("lines ") else ""
+        mentions = [
+            value.strip()
+            for value in match.group("mentions").split(",")
+            if value.strip()
+            and value.strip() != symbol
+            and value.strip().lower() not in {"pass", "cached", "context"}
+        ]
+        language_text = f" in {language}" if language else ""
+        article = "an" if kind[:1].lower() in {"a", "e", "i", "o", "u"} else "a"
+        if mentions:
+            return f"{symbol} is {article} {kind}{language_text}; it is associated with {', '.join(mentions[:5])}."
+        return f"{symbol} is {article} {kind}{language_text}."
 
     def _chunks(self, response: str) -> list[str]:
         return [response[index:index + self.chunk_size] for index in range(0, len(response), self.chunk_size)]

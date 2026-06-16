@@ -23,13 +23,14 @@ async def test_local_demo_completion_client_summarizes_retrieved_context():
     chunks = [chunk async for chunk in client.text_generation(prompt)]
     answer = "".join(chunks)
 
-    assert "summary: What does RepositoryIndexer do?" in answer
-    assert "Retrieved summaries:" in answer
+    assert "I found relevant indexed context for: summary: What does RepositoryIndexer do?" in answer
+    assert "Most relevant evidence:" in answer
     assert "RepositoryIndexer" in answer
+    assert "RepositoryIndexer is a class in python" in answer
     assert "src/ingestion/indexer.py" not in answer
     assert "class RepositoryIndexer:" not in answer
     assert "src/gateway/main.py" not in answer
-    assert "external inference server" in answer
+    assert "external inference server" not in answer
 
 
 def test_local_demo_inference_is_default_unless_llamacpp_is_requested(monkeypatch):
