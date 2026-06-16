@@ -177,3 +177,97 @@ def test_lexical_reranker_prefers_exact_class_for_named_class_query():
     ranked = reranker.rerank("What does RepositoryIndexer do?", chunks, top_m=3)
 
     assert ranked[0]["id"] == "class"
+
+
+def test_lexical_reranker_prefers_owner_method_for_action_query():
+    reranker = LexicalReranker()
+    chunks = [
+        {
+            "id": "class",
+            "file_path": "src/gateway/services.py",
+            "symbol_name": "CacheService",
+            "kind": "class",
+            "text": "class CacheService",
+            "metadata": {"qualified_name": "CacheService"},
+        },
+        {
+            "id": "method",
+            "file_path": "src/gateway/services.py",
+            "symbol_name": "_generate_key",
+            "kind": "method",
+            "text": "def _generate_key(self, query, tier, scopes, response_mode, model_id, index_fingerprint)",
+            "metadata": {"qualified_name": "CacheService._generate_key"},
+        },
+        {
+            "id": "noise",
+            "file_path": "tests/test_hooks.py",
+            "symbol_name": "generate",
+            "kind": "method",
+            "text": "def generate(self): pass",
+            "metadata": {"qualified_name": "MockModel.generate"},
+        },
+    ]
+
+    ranked = reranker.rerank("How does CacheService generate cache keys?", chunks, top_m=3)
+
+    assert ranked[0]["id"] == "method"
+
+
+def test_lexical_reranker_prefers_same_symbol_implementation_over_interface():
+    reranker = LexicalReranker()
+    chunks = [
+        {
+            "id": "interface",
+            "file_path": "src/ingestion/indexer.py",
+            "symbol_name": "RepositoryIndexer",
+            "kind": "class",
+            "text": "class RepositoryIndexer",
+            "metadata": {"qualified_name": "RepositoryIndexer"},
+        },
+        {
+            "id": "implementation",
+            "file_path": "src/ingestion/indexer.py",
+            "symbol_name": "RepositoryIndexer",
+            "kind": "class-implementation",
+            "text": "class RepositoryIndexer index_repository _iter_files _index_file upsert_artifacts upsert_edges",
+            "metadata": {"qualified_name": "RepositoryIndexer"},
+        },
+    ]
+
+    ranked = reranker.rerank("What does RepositoryIndexer do?", chunks, top_m=1)
+
+    assert ranked[0]["id"] == "implementation"
+
+
+def test_lexical_reranker_keeps_same_owner_methods_for_named_class_query():
+    reranker = LexicalReranker()
+    chunks = [
+        {
+            "id": "implementation",
+            "file_path": "src/ingestion/indexer.py",
+            "symbol_name": "RepositoryIndexer",
+            "kind": "class-implementation",
+            "text": "class RepositoryIndexer",
+            "metadata": {"qualified_name": "RepositoryIndexer"},
+        },
+        {
+            "id": "index-method",
+            "file_path": "src/ingestion/indexer.py",
+            "symbol_name": "index_repository",
+            "kind": "method",
+            "text": "def index_repository(self, repository, repo_path)",
+            "metadata": {"qualified_name": "RepositoryIndexer.index_repository"},
+        },
+        {
+            "id": "noise",
+            "file_path": "src/other.py",
+            "symbol_name": "OtherThing",
+            "kind": "class",
+            "text": "class OtherThing",
+            "metadata": {"qualified_name": "OtherThing"},
+        },
+    ]
+
+    ranked = reranker.rerank("What does RepositoryIndexer do?", chunks, top_m=2)
+
+    assert [item["id"] for item in ranked] == ["implementation", "index-method"]

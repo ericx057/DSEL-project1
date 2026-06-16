@@ -88,6 +88,41 @@ def test_summarizer_does_not_echo_path_like_symbols():
     assert "expensive_call" in summary
 
 
+def test_summarizer_prioritizes_implementation_declarations_over_constants():
+    summary = RetrievedContextSummarizer().summarize_chunks(
+        [
+            {
+                "symbol_name": "RepositoryIndexer",
+                "kind": "class-implementation",
+                "language": "python",
+                "line_start": 1,
+                "line_end": 50,
+                "text": "\n".join(
+                    [
+                        "class RepositoryIndexer:",
+                        "    DEFAULT_EXCLUDES = ('.git', '.venv', '__pycache__', 'node_modules')",
+                        "    def __init__(self, store):",
+                        "        self.store = store",
+                        "    def index_repository(self, repository, repo_path):",
+                        "        for path in self._iter_files(repo_path):",
+                        "            self._index_file(repository, path)",
+                        "    def _iter_files(self, root):",
+                        "        yield from root.rglob('*')",
+                        "    def _index_file(self, repository, file_path):",
+                        "        return self.store.upsert_artifacts([])",
+                    ]
+                ),
+            }
+        ]
+    )
+
+    assert "index_repository" in summary
+    assert "_iter_files" in summary
+    assert "_index_file" in summary
+    if "DEFAULT_EXCLUDES" in summary:
+        assert summary.index("index_repository") < summary.index("DEFAULT_EXCLUDES")
+
+
 def test_response_shaper_summarizes_legacy_raw_file_blocks():
     raw = "\n".join(
         [

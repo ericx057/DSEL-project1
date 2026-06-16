@@ -73,6 +73,7 @@ class LexicalReranker:
         "file",
         "for",
         "from",
+        "how",
         "in",
         "indexed",
         "is",
@@ -106,11 +107,6 @@ class LexicalReranker:
     def _score(cls, query: str, chunk: Dict[str, Any]) -> float:
         searchable = cls._searchable_text(chunk)
         file_path = str(chunk.get("file_path", "")).lower().replace("\\", "/")
-        metadata = chunk.get("metadata") or {}
-        symbol_text = " ".join(
-            str(value)
-            for value in (chunk.get("symbol_name", ""), metadata.get("qualified_name", ""))
-        ).lower()
         basename = Path(file_path).name
         suffix = Path(file_path).suffix
         score = 0.0
@@ -118,8 +114,7 @@ class LexicalReranker:
         for term in cls._query_terms(query):
             if term in searchable:
                 score += 1.0
-            if term in symbol_text:
-                score += 8.0
+            score += cls._symbol_term_score(term, chunk)
             score += cls._path_token_score(term, file_path)
 
         for literal in cls._query_literals(query):
@@ -157,9 +152,88 @@ class LexicalReranker:
             score += 35.0
         if cls._is_named_config_match(query_terms, file_path, int(chunk.get("line_end", 9999) or 9999)):
             score += 60.0
+        score += cls._owner_action_bonus(query_terms, chunk)
         score += cls._source_marker_score(chunk)
 
         return score
+
+    @classmethod
+    def _symbol_term_score(cls, term: str, chunk: Dict[str, Any]) -> float:
+        if not term:
+            return 0.0
+        metadata = chunk.get("metadata") or {}
+        symbol = str(chunk.get("symbol_name", ""))
+        qualified = str(metadata.get("qualified_name", ""))
+        kind = str(chunk.get("kind", "")).lower()
+        normalized_symbol = cls._normalize_identifier(symbol)
+        normalized_qualified = cls._normalize_identifier(qualified)
+        qualified_parts = cls._qualified_parts(qualified)
+
+        score = 0.0
+        if term == normalized_symbol:
+            score += 40.0
+            if kind in {"class", "struct", "interface", "enum"}:
+                score += 15.0
+            if "implementation" in kind:
+                score += 20.0
+        elif term == normalized_qualified:
+            score += 35.0
+        elif term in qualified_parts:
+            if qualified_parts and term == qualified_parts[-1]:
+                score += 18.0
+            else:
+                score += 3.0
+        elif term in f"{normalized_symbol} {normalized_qualified}":
+            score += 6.0
+        return score
+
+    @classmethod
+    def _owner_action_bonus(cls, query_terms: List[str], chunk: Dict[str, Any]) -> float:
+        kind = str(chunk.get("kind", "")).lower()
+        if "method" not in kind and "function" not in kind:
+            return 0.0
+        metadata = chunk.get("metadata") or {}
+        qualified = str(metadata.get("qualified_name", ""))
+        parts = cls._qualified_parts(qualified)
+        if len(parts) < 2:
+            return 0.0
+        owner_terms = set(parts[:-1])
+        action_terms = set(parts[1:])
+        query_set = set(query_terms)
+        if owner_terms & query_set and action_terms & query_set:
+            return 60.0
+        return 0.0
+
+    @staticmethod
+    def _normalize_identifier(value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "", value.lower())
+
+    @classmethod
+    def _qualified_parts(cls, value: str) -> List[str]:
+        parts: List[str] = []
+        for part in re.split(r"::|\.|#", value):
+            parts.extend(cls._identifier_parts(part))
+        return list(dict.fromkeys(parts))
+
+    @classmethod
+    def _identifier_parts(cls, value: str) -> List[str]:
+        parts: List[str] = []
+        for raw in re.split(r"[^A-Za-z0-9]+", value):
+            if not raw:
+                continue
+            lowered = raw.lower()
+            parts.append(lowered)
+            normalized = cls._normalize_identifier(raw)
+            if normalized:
+                parts.append(normalized)
+            for camel_part in re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z]|$)|[0-9]+", raw):
+                token = camel_part.lower()
+                if token:
+                    parts.append(token)
+        normalized_full = cls._normalize_identifier(value)
+        if normalized_full:
+            parts.append(normalized_full)
+        return list(dict.fromkeys(parts))
 
     @staticmethod
     def _source_marker_score(chunk: Dict[str, Any]) -> float:
@@ -176,17 +250,21 @@ class LexicalReranker:
             score += 2.0
         return score
 
-    @staticmethod
-    def _diverse_top_m(chunks: List[Dict[str, Any]], top_m: int) -> List[Dict[str, Any]]:
+    @classmethod
+    def _diverse_top_m(cls, chunks: List[Dict[str, Any]], top_m: int) -> List[Dict[str, Any]]:
         selected: List[Dict[str, Any]] = []
+        selected_owners: set[str] = set()
         seen_files: set[str] = set()
         seen_basenames: set[str] = set()
         for chunk in chunks:
             file_path = str(chunk.get("file_path", ""))
             basename = Path(file_path).name.lower()
-            if file_path in seen_files or basename in seen_basenames:
+            owner = cls._chunk_owner(chunk)
+            if (file_path in seen_files or basename in seen_basenames) and owner not in selected_owners:
                 continue
             selected.append(chunk)
+            if owner:
+                selected_owners.add(owner)
             seen_files.add(file_path)
             if basename:
                 seen_basenames.add(basename)
@@ -202,6 +280,20 @@ class LexicalReranker:
                 break
         return selected
 
+    @classmethod
+    def _chunk_owner(cls, chunk: Dict[str, Any]) -> str:
+        metadata = chunk.get("metadata") or {}
+        qualified = str(metadata.get("qualified_name") or "")
+        parts = [part for part in re.split(r"::|\.|#", qualified) if part]
+        if not parts:
+            return ""
+        kind = str(chunk.get("kind") or "").lower()
+        if kind in {"class", "struct", "interface", "enum", "class-implementation", "struct-implementation"}:
+            return cls._normalize_identifier(parts[-1])
+        if len(parts) > 1:
+            return cls._normalize_identifier(parts[-2])
+        return ""
+
     @staticmethod
     def _searchable_text(chunk: Dict[str, Any]) -> str:
         return " ".join(
@@ -212,18 +304,22 @@ class LexicalReranker:
     @classmethod
     def _query_terms(cls, query: str) -> List[str]:
         normalized = query.lower().replace("\\", "/")
-        terms = [
-            term
-            for term in re.findall(r"[a-z_][a-z0-9_]*", normalized)
-            if term not in cls.STOPWORDS and len(term) > 1
-        ]
+        terms = []
+        for raw in re.findall(r"[a-z_][a-z0-9_]*", normalized):
+            for term in cls._identifier_parts(raw):
+                if term not in cls.STOPWORDS and len(term) > 1:
+                    terms.append(term)
+                    stemmed = cls._light_stem(term)
+                    if stemmed != term:
+                        terms.append(stemmed)
         terms.extend(cls._path_like_terms(normalized))
         for literal in cls._query_literals(normalized):
-            terms.extend(
-                term
-                for term in re.findall(r"[a-z_][a-z0-9_]*", literal)
-                if term not in cls.STOPWORDS and len(term) > 1
-            )
+            for raw in re.findall(r"[a-z_][a-z0-9_]*", literal):
+                terms.extend(
+                    term
+                    for term in cls._identifier_parts(raw)
+                    if term not in cls.STOPWORDS and len(term) > 1
+                )
             terms.append(literal)
         return list(dict.fromkeys(term for term in terms if term))
 
@@ -286,6 +382,8 @@ class LexicalReranker:
 
     @staticmethod
     def _light_stem(value: str) -> str:
+        if value.endswith("s") and len(value) > 3:
+            return value[:-1]
         for suffix in ("ization", "ation", "tion", "ing", "ers", "er", "ed", "es", "s"):
             if value.endswith(suffix) and len(value) > len(suffix) + 3:
                 return value[: -len(suffix)]

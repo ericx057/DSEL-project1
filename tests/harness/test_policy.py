@@ -65,6 +65,83 @@ def test_policy_replaces_abstract_answer_when_evidence_has_behavioral_terms():
     assert "is a class in TypeScript." not in decision.response
 
 
+def test_policy_replaces_embedded_abstract_evidence_shell():
+    packet = RetrievalPacket(
+        artifacts=[
+            {
+                "id": "repo-a:indexer",
+                "repository": "repo-a",
+                "file_path": "src/ingestion/indexer.py",
+                "language": "python",
+                "kind": "class-implementation",
+                "symbol_name": "RepositoryIndexer",
+                "text": "class RepositoryIndexer index_repository _iter_files _index_file upsert_artifacts",
+                "tier": 3,
+                "metadata": {"qualified_name": "RepositoryIndexer"},
+            }
+        ],
+        summaries=[
+            "[1] RepositoryIndexer (class-implementation, python, lines 1-40) - Mentions RepositoryIndexer, index_repository, _iter_files, _index_file, upsert_artifacts."
+        ],
+        timings_ms={},
+        index_fingerprint="fp-1",
+        policy_version="response-policy-v3",
+    )
+    model_output = (
+        "I found relevant indexed context for: summary: What does RepositoryIndexer do?\n\n"
+        "Most relevant evidence:\n"
+        "- RepositoryIndexer is a class in python."
+    )
+
+    decision = ResponsePolicy().apply(model_output, _task("What does RepositoryIndexer do?"), packet)
+
+    assert decision.accepted is False
+    assert "RepositoryIndexer's retrieved implementation indexes repositories" in decision.response
+    assert "iterates files" in decision.response
+    assert "RepositoryIndexer is a class in python" not in decision.response
+
+
+def test_policy_fallback_does_not_dilute_class_implementation_summary():
+    packet = RetrievalPacket(
+        artifacts=[
+            {
+                "id": "repo-a:indexer-impl",
+                "repository": "repo-a",
+                "file_path": "src/ingestion/indexer.py",
+                "language": "python",
+                "kind": "class-implementation",
+                "symbol_name": "RepositoryIndexer",
+                "text": "class RepositoryIndexer index_repository _iter_files _is_excluded",
+                "tier": 3,
+                "metadata": {"qualified_name": "RepositoryIndexer"},
+            },
+            {
+                "id": "repo-a:indexer-class",
+                "repository": "repo-a",
+                "file_path": "src/ingestion/indexer.py",
+                "language": "python",
+                "kind": "class",
+                "symbol_name": "RepositoryIndexer",
+                "text": "class RepositoryIndexer",
+                "tier": 1,
+                "metadata": {"qualified_name": "RepositoryIndexer"},
+            },
+        ],
+        summaries=[
+            "[1] RepositoryIndexer (class-implementation, python, lines 1-40) - Mentions RepositoryIndexer, index_repository, _iter_files, _is_excluded.",
+            "[2] RepositoryIndexer (class, python, lines 1-2) - Mentions RepositoryIndexer.",
+        ],
+        timings_ms={},
+        index_fingerprint="fp-1",
+        policy_version="response-policy-v3",
+    )
+
+    decision = ResponsePolicy().apply("", _task("What does RepositoryIndexer do?"), packet)
+
+    assert "RepositoryIndexer's retrieved implementation indexes repositories" in decision.response
+    assert "only identifies the class" not in decision.response
+
+
 def test_policy_explains_thin_declaration_only_evidence():
     packet = _packet("[1] RepositoryIndexer (class, python, lines 1-2) - Mentions RepositoryIndexer.")
 
@@ -81,3 +158,120 @@ def test_policy_no_hits_avoids_speculation():
 
     assert decision.source == "fallback"
     assert decision.response == "No indexed context matched `Where is payment handled?`."
+
+
+def test_policy_no_hits_ignores_unrelated_retrieval_noise():
+    packet = RetrievalPacket(
+        artifacts=[
+            {
+                "id": "repo-a:retrieval-engine",
+                "repository": "repo-a",
+                "file_path": "demo.py",
+                "language": "python",
+                "kind": "method",
+                "symbol_name": "__init__",
+                "text": "def __init__(self, store, searcher)",
+                "tier": 1,
+                "metadata": {"qualified_name": "RetrievalEngine.__init__"},
+            }
+        ],
+        summaries=[
+            "[1] __init__ (method, python, lines 1-2) - Mentions __init__, store, searcher."
+        ],
+        timings_ms={},
+        index_fingerprint="fp-1",
+        policy_version="response-policy-v3",
+    )
+
+    decision = ResponsePolicy().apply("", _task("How does the payout settlement engine work?"), packet)
+
+    assert decision.source == "fallback"
+    assert decision.response == "No indexed context matched `How does the payout settlement engine work?`."
+    assert "RetrievalEngine" not in decision.response
+
+
+def test_policy_fallback_filters_unrelated_retrieved_artifacts():
+    packet = RetrievalPacket(
+        artifacts=[
+            {
+                "id": "repo-a:indexer",
+                "repository": "repo-a",
+                "file_path": "src/ingestion/indexer.py",
+                "language": "python",
+                "kind": "class",
+                "symbol_name": "RepositoryIndexer",
+                "text": "class RepositoryIndexer",
+                "tier": 1,
+                "metadata": {"qualified_name": "RepositoryIndexer"},
+            },
+            {
+                "id": "repo-a:test-noise",
+                "repository": "repo-a",
+                "file_path": "tests/test_window.py",
+                "language": "python",
+                "kind": "function",
+                "symbol_name": "test_window_visible",
+                "text": "def test_window_visible(): pass",
+                "tier": 1,
+                "metadata": {"qualified_name": "test_window_visible"},
+            },
+        ],
+        summaries=[
+            "[1] RepositoryIndexer (class, python, lines 1-2) - Mentions RepositoryIndexer.",
+            "[2] test_window_visible (function, python, lines 5-6) - Mentions test_window_visible.",
+        ],
+        timings_ms={},
+        index_fingerprint="fp-1",
+        policy_version="response-policy-v3",
+    )
+
+    decision = ResponsePolicy().apply("RepositoryIndexer is a class in Python.", _task("What does RepositoryIndexer do?"), packet)
+
+    assert "RepositoryIndexer is a Python class." in decision.response
+    assert "test_window_visible" not in decision.response
+    assert "indexed context is too thin for a behavioral answer" in decision.response
+
+
+def test_policy_fallback_keeps_artifacts_for_named_owner_not_word_overlap_helpers():
+    packet = RetrievalPacket(
+        artifacts=[
+            {
+                "id": "repo-a:generate-key",
+                "repository": "repo-a",
+                "file_path": "src/gateway/services.py",
+                "language": "python",
+                "kind": "method",
+                "symbol_name": "_generate_key",
+                "text": "def _generate_key(self, query, tier, scopes, response_mode, model_id)",
+                "tier": 1,
+                "metadata": {"qualified_name": "CacheService._generate_key"},
+            },
+            {
+                "id": "repo-a:get-cache-service",
+                "repository": "repo-a",
+                "file_path": "src/gateway/main.py",
+                "language": "python",
+                "kind": "function",
+                "symbol_name": "get_cache_service",
+                "text": "def get_cache_service(repo)",
+                "tier": 1,
+                "metadata": {"qualified_name": "get_cache_service"},
+            },
+        ],
+        summaries=[
+            "[1] _generate_key (method, python, lines 1-2) - Mentions _generate_key, query, tier, scopes, response_mode, model_id.",
+            "[2] get_cache_service (function, python, lines 1-2) - Mentions get_cache_service, repo.",
+        ],
+        timings_ms={},
+        index_fingerprint="fp-1",
+        policy_version="response-policy-v3",
+    )
+
+    decision = ResponsePolicy().apply(
+        "Relevant files:\n- src/gateway/services.py",
+        _task("How does CacheService generate cache keys?"),
+        packet,
+    )
+
+    assert "_generate_key is a Python method" in decision.response
+    assert "get_cache_service" not in decision.response

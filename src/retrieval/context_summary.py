@@ -22,6 +22,7 @@ class RetrievedContextSummarizer:
         "for",
         "if",
         "int",
+        "__init__",
         "pass",
         "path",
         "raw",
@@ -66,16 +67,16 @@ class RetrievedContextSummarizer:
     @classmethod
     def _identifier_summary(cls, text: str, symbol: str) -> str:
         identifiers: List[str] = []
-        for value in (symbol, text):
+        for value in (symbol,):
             for raw_token in cls._IDENTIFIER_RE.findall(value):
-                token = raw_token.strip(":")
-                lowered = token.lower().strip(":")
-                if len(lowered) <= 2 or lowered in cls._STOPWORDS:
-                    continue
-                if "/" in token or "\\" in token:
-                    continue
-                if token not in identifiers:
-                    identifiers.append(token)
+                cls._append_identifier(identifiers, raw_token)
+        for raw_token in cls._declaration_identifiers(text):
+            cls._append_identifier(identifiers, raw_token)
+            if len(identifiers) >= 10:
+                break
+        for value in (text,):
+            for raw_token in cls._IDENTIFIER_RE.findall(value):
+                cls._append_identifier(identifiers, raw_token)
                 if len(identifiers) >= 10:
                     break
             if len(identifiers) >= 10:
@@ -83,6 +84,42 @@ class RetrievedContextSummarizer:
         if not identifiers:
             return "No salient identifiers extracted."
         return "Mentions " + ", ".join(identifiers[:10]) + "."
+
+    @classmethod
+    def _append_identifier(cls, identifiers: List[str], raw_token: str) -> None:
+        token = raw_token.strip(":")
+        lowered = token.lower().strip(":")
+        if len(lowered) <= 2 or lowered in cls._STOPWORDS:
+            return
+        if "/" in token or "\\" in token:
+            return
+        if re.match(r"^__.*__$", token):
+            return
+        if token not in identifiers:
+            identifiers.append(token)
+
+    @classmethod
+    def _declaration_identifiers(cls, text: str) -> List[str]:
+        identifiers: List[str] = []
+        for match in re.finditer(r"\b(?:async\s+def|def)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", text):
+            cls._append_identifier(identifiers, match.group(1))
+        for match in re.finditer(r"\bfunc\s+(?:\([^)]*\)\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*\(", text):
+            cls._append_identifier(identifiers, match.group(1))
+        for match in re.finditer(r"\b([A-Za-z_][A-Za-z0-9_:~]*)::([A-Za-z_~][A-Za-z0-9_~]*)\s*\(", text):
+            cls._append_identifier(identifiers, match.group(2))
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped or re.match(r"^(?:if|for|while|switch|catch|return|else)\b", stripped):
+                continue
+            match = re.match(
+                r"^(?:(?:public|private|protected|static|async|final|override|virtual|export)\s+)*"
+                r"(?:[A-Za-z_][A-Za-z0-9_<>,:\[\]\s*&?]+\s+)?"
+                r"([A-Za-z_][A-Za-z0-9_]*)\s*\(",
+                stripped,
+            )
+            if match:
+                cls._append_identifier(identifiers, match.group(1))
+        return identifiers
 
     @classmethod
     def _display_symbol(cls, symbol: str, chunk: Dict[str, Any]) -> str:
