@@ -256,8 +256,10 @@ def create_app(
         acquired = await cache.acquire_lock(request.query, tier, scopes)
         if not acquired:
             async def subscriber_stream() -> AsyncGenerator[str, None]:
+                chunks = []
                 async for chunk in cache.subscribe(request.query, tier, scopes):
-                    yield response_shaper.shape(chunk)
+                    chunks.append(chunk)
+                yield response_shaper.shape("".join(chunks))
             return StreamingResponse(subscriber_stream(), media_type="text/event-stream")
 
         prompt = _build_prompt(request.query, tier, scopes, store)
@@ -313,7 +315,9 @@ def _build_prompt(query: str, tier, scopes: list[str], store: Optional[UnifiedSt
     system_rule = (
         "You are a read-only codebase intelligence assistant. "
         f"The authenticated user's access tier is {tier.value}. "
-        "Use only the provided context and do not infer inaccessible implementation details."
+        "Use only the provided retrieved summaries and do not infer inaccessible implementation details. "
+        "Do not answer by listing file paths, raw filenames, or copied source. "
+        "Summarize behavior in terms of symbols, responsibilities, and call relationships."
     )
     return PromptAssembler(system_rule).assemble(query, reranked)
 

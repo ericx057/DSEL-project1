@@ -356,3 +356,46 @@ def test_repository_indexer_detects_cpp_header_from_content(tmp_path: Path):
     artifacts = store.list_artifacts(user_tier=3, repo_scope=["repo-a"])
     class_artifact = next(item for item in artifacts if item["symbol_name"] == "Shape" and item["kind"] == "class")
     assert class_artifact["language"] == "cpp"
+
+
+def test_repository_indexer_indexes_multilanguage_classes_and_functions(tmp_path: Path):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    (repo / "checkout.ts").write_text(
+        "\n".join(
+            [
+                "export class CheckoutService {",
+                "  authorize(amount: number): boolean {",
+                "    return validate(amount);",
+                "  }",
+                "}",
+                "export function buildReceipt(id: string): string {",
+                "  return formatReceipt(id);",
+                "}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (repo / "checkout.go").write_text(
+        "\n".join(
+            [
+                "package checkout",
+                "type Service struct {}",
+                "func (s *Service) Authorize(amount int) bool {",
+                "    return validate(amount)",
+                "}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+
+    RepositoryIndexer(store).index_repository("repo-a", repo)
+
+    artifacts = store.list_artifacts(user_tier=3, repo_scope=["repo-a"])
+    symbol_pairs = {(item["language"], item["kind"], item["metadata"].get("qualified_name")) for item in artifacts}
+    assert ("typescript", "class", "CheckoutService") in symbol_pairs
+    assert ("typescript", "method", "CheckoutService.authorize") in symbol_pairs
+    assert ("typescript", "function", "buildReceipt") in symbol_pairs
+    assert ("go", "class", "Service") in symbol_pairs
+    assert ("go", "method", "Service.Authorize") in symbol_pairs

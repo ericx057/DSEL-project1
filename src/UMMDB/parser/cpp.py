@@ -108,7 +108,8 @@ class CppSignatureParser:
                     signature_text, signature_end = parsed
                     body_end = self._find_body_end(lines, signature_end) if self._signature_terminator(signature_text) == "{" else signature_end
                     body = "\n".join(lines[index : body_end + 1]) if body_end >= index else ""
-                    cpp_signature = self._parse_signature(signature_text, owner=None, body=body)
+                    namespace = "::".join(name for name, _ in namespace_stack)
+                    cpp_signature = self._parse_signature(signature_text, owner=None, namespace=namespace, body=body)
                     if cpp_signature is not None:
                         chunks.extend(self._signature_chunks(cpp_signature, lines, index, signature_end, body_end, ParsedChunk))
                         for depth_index in range(index, body_end + 1):
@@ -180,7 +181,7 @@ class CppSignatureParser:
             signature_text, signature_end = parsed
             body_end = self._find_body_end(lines, signature_end) if self._signature_terminator(signature_text) == "{" else signature_end
             body = "\n".join(lines[index : body_end + 1]) if body_end >= index else ""
-            cpp_signature = self._parse_signature(signature_text, owner=owner, body=body)
+            cpp_signature = self._parse_signature(signature_text, owner=owner, namespace=None, body=body)
             if cpp_signature is None:
                 index += 1
                 continue
@@ -259,7 +260,13 @@ class CppSignatureParser:
             return ";"
         return None
 
-    def _parse_signature(self, signature: str, owner: Optional[str], body: str) -> Optional[_CppSignature]:
+    def _parse_signature(
+        self,
+        signature: str,
+        owner: Optional[str],
+        namespace: Optional[str],
+        body: str,
+    ) -> Optional[_CppSignature]:
         has_body = self._signature_terminator(signature) == "{"
         head = signature.split("{", 1)[0].split(";", 1)[0].strip()
         head = re.sub(r"\s+", " ", head)
@@ -274,6 +281,7 @@ class CppSignatureParser:
             return None
 
         qualified_name = match.group("qualified")
+        explicitly_qualified = "::" in qualified_name
         simple_name = qualified_name.rsplit("::", 1)[-1]
         if simple_name in self._CALL_EXCLUDES:
             return None
@@ -281,10 +289,12 @@ class CppSignatureParser:
         prefix = before_params[: match.start("qualified")].strip()
         if owner and "::" not in qualified_name:
             qualified_name = f"{owner}::{simple_name}"
+        elif namespace and "::" not in qualified_name:
+            qualified_name = f"{namespace}::{simple_name}"
         if "::" not in qualified_name and not prefix:
             return None
 
-        kind = "method" if "::" in qualified_name or owner else "function"
+        kind = "method" if owner or explicitly_qualified else "function"
         normalized_signature = f"{qualified_name}({params})"
         signature_hash = hashlib.sha1(normalized_signature.encode("utf-8")).hexdigest()[:12]
         body_for_calls = body.split("{", 1)[1] if "{" in body else body

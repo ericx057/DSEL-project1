@@ -233,11 +233,37 @@ def test_local_inference_answer_generator_streams_retrieved_context_through_runt
         history=(ConversationTurn("Previous?", "Previous answer."),),
     )
 
-    assert tokens == ["Local", " answer"]
+    assert tokens == ["Local answer"]
     assert done == [None]
     assert "Retrieved summaries:" in runtime.prompts[0]
     assert "src/App/Document.cpp" not in runtime.prompts[0]
     assert "Previous question: Previous?" in runtime.prompts[0]
+
+
+def test_local_inference_answer_generator_shapes_raw_model_output():
+    class FakeRuntime:
+        def generate_stream(self, prompt: str):
+            yield r"--- File: src\app\service.py | Language: python | Tier: 1 ---"
+            yield "\nclass Service:\n"
+            yield "    def handle(self):\n"
+            yield "        return value"
+
+    tokens = []
+    done = []
+    LocalInferenceAnswerGenerator(runtime=FakeRuntime()).stream(
+        "Where is service?",
+        [{"file_path": "src/app/service.py", "text": "class Service:\n    def handle(self): pass"}],
+        tokens.append,
+        done.append,
+    )
+
+    answer = "".join(tokens)
+    assert done == [None]
+    assert "Retrieved summaries:" in answer
+    assert r"src\app\service.py" not in answer
+    assert "class Service:" not in answer
+    assert "def handle" not in answer
+    assert "Service" in answer
 
 
 def test_codex_cli_answer_generator_routes_prompt_to_local_agent_command(tmp_path):

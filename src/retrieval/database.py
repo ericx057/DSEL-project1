@@ -624,6 +624,7 @@ class SQLiteUnifiedStore(UnifiedStore):
             repo_scope=repo_scope,
             limit=max(top_k * 6, 50),
         )
+        results_by_id: Dict[str, Dict[str, Any]] = {}
         if matches:
             ids = [match.artifact_id for match in matches]
             placeholders = ",".join("?" for _ in ids)
@@ -632,7 +633,6 @@ class SQLiteUnifiedStore(UnifiedStore):
                 ids,
             ).fetchall()
             rows_by_id = {row["id"]: row for row in rows}
-            results: List[Dict[str, Any]] = []
             for match in matches:
                 row = rows_by_id.get(match.artifact_id)
                 if row is None:
@@ -640,10 +640,7 @@ class SQLiteUnifiedStore(UnifiedStore):
                 item = self._row_to_dict(row)
                 item["score"] = match.score
                 item["_lexical_match"] = True
-                results.append(item)
-                if len(results) >= top_k:
-                    break
-            return results
+                results_by_id[item["id"]] = item
 
         repo_sql, repo_params = self._repo_clause(repo_scope)
         rows_by_id: Dict[str, sqlite3.Row] = {}
@@ -667,10 +664,16 @@ class SQLiteUnifiedStore(UnifiedStore):
             haystack = " ".join(
                 str(item.get(field, "")) for field in ("file_path", "symbol_name", "kind", "text")
             ).lower()
-            item["score"] = float(sum(1 for term in terms if term in haystack))
+            item["score"] = float(sum(1 for term in terms if term in haystack)) * 10.0
             item["_lexical_match"] = True
-            scored.append(item)
-        scored.sort(key=lambda item: (item["score"], item["file_path"]), reverse=True)
+            item["_text_match"] = True
+            existing = results_by_id.get(item["id"])
+            if existing is not None and existing.get("score", 0.0) >= item["score"]:
+                existing["_text_match"] = True
+                continue
+            results_by_id[item["id"]] = item
+        scored = list(results_by_id.values())
+        scored.sort(key=lambda item: (-item["score"], item["file_path"], item["id"]))
         return scored[:top_k]
 
     def file_path_search(

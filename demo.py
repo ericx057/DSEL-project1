@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from src.retrieval.context_summary import ResponseShaper as SharedResponseShaper
+
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
@@ -103,6 +105,7 @@ class ConversationSession:
 
 class RetrievedContextSummarizer:
     _IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_:]*")
+    _PATH_LIKE_RE = re.compile(r"(?i)(?:[A-Z]:[\\/]|(?:^|[\\/])|[A-Za-z0-9_.-]+[\\/]).*\.[A-Za-z0-9]{1,8}$")
     _STOPWORDS = {
         "and",
         "bool",
@@ -130,7 +133,8 @@ class RetrievedContextSummarizer:
         return "\n".join(summaries) if summaries else "No retrieved artifacts."
 
     def summarize_hit(self, hit: Dict[str, Any], index: int) -> str:
-        symbol = str(hit.get("symbol_name") or "").strip() or "unnamed artifact"
+        raw_symbol = str(hit.get("symbol_name") or "").strip()
+        symbol = self._display_symbol(raw_symbol, hit)
         kind = str(hit.get("kind") or "artifact").strip()
         language = str(hit.get("language") or "").strip()
         line_start = hit.get("line_start")
@@ -140,7 +144,8 @@ class RetrievedContextSummarizer:
             for value in (kind, language, self._line_summary(line_start, line_end))
             if value
         )
-        identifiers = self._identifier_summary(str(hit.get("text") or ""), symbol)
+        identifier_seed = "" if self._looks_like_path(raw_symbol) else raw_symbol
+        identifiers = self._identifier_summary(str(hit.get("text") or ""), identifier_seed)
         return f"[{index}] {symbol} ({descriptors}) - {identifiers}"
 
     @staticmethod
@@ -153,7 +158,8 @@ class RetrievedContextSummarizer:
     def _identifier_summary(cls, text: str, symbol: str) -> str:
         identifiers: List[str] = []
         for value in (symbol, text):
-            for token in cls._IDENTIFIER_RE.findall(value):
+            for raw_token in cls._IDENTIFIER_RE.findall(value):
+                token = raw_token.strip(":")
                 lowered = token.lower().strip(":")
                 if len(lowered) <= 2 or lowered in cls._STOPWORDS:
                     continue
@@ -168,6 +174,23 @@ class RetrievedContextSummarizer:
         if not identifiers:
             return "No salient identifiers extracted."
         return "Mentions " + ", ".join(identifiers[:10]) + "."
+
+    @classmethod
+    def _display_symbol(cls, symbol: str, hit: Dict[str, Any]) -> str:
+        if symbol and not cls._looks_like_path(symbol):
+            return symbol
+        language = str(hit.get("language") or "").strip()
+        kind = str(hit.get("kind") or "artifact").strip() or "artifact"
+        if language:
+            return f"{language} {kind}"
+        return kind if kind != "chunk" else "unnamed artifact"
+
+    @classmethod
+    def _looks_like_path(cls, value: str) -> bool:
+        normalized = value.strip()
+        if not normalized:
+            return False
+        return bool(cls._PATH_LIKE_RE.search(normalized.replace("\\", "/")))
 
 
 class LLMPromptBuilder:
@@ -432,6 +455,16 @@ def _build_context(hits: List[Dict[str, Any]]) -> str:
     return RetrievedContextSummarizer().summarize_hits(hits)
 
 
+def _shape_answer_text(text: str) -> str:
+    return SharedResponseShaper().shape(text)
+
+
+def _emit_shaped_answer(chunks: List[str], on_token: Callable[[str], None]) -> None:
+    shaped = _shape_answer_text("".join(chunks))
+    if shaped:
+        on_token(shaped)
+
+
 class LLMAnswerGenerator:
     """Streams a natural-language answer from Claude Haiku given retrieved snippets."""
 
@@ -464,6 +497,7 @@ class LLMAnswerGenerator:
         prompt = self._prompt_builder.build_user_prompt(query, hits, history)
         try:
             import anthropic
+            chunks: List[str] = []
             with self._client.messages.stream(
                 model=self._MODEL,
                 max_tokens=_MAX_TOKENS,
@@ -471,7 +505,8 @@ class LLMAnswerGenerator:
                 messages=[{"role": "user", "content": prompt}],
             ) as s:
                 for chunk in s.text_stream:
-                    on_token(chunk)
+                    chunks.append(chunk)
+            _emit_shaped_answer(chunks, on_token)
             on_done(None)
         except anthropic.AuthenticationError:
             on_done("\n\n[Auth error — check ANTHROPIC_API_KEY]")
@@ -510,6 +545,7 @@ class OpenAIAnswerGenerator:
             return
         prompt = self._prompt_builder.build_user_prompt(query, hits, history)
         try:
+            chunks: List[str] = []
             with self._client.chat.completions.create(
                 model=self._MODEL,
                 max_tokens=_MAX_TOKENS,
@@ -522,7 +558,8 @@ class OpenAIAnswerGenerator:
                 for event in stream:
                     delta = event.choices[0].delta.content
                     if delta:
-                        on_token(delta)
+                        chunks.append(delta)
+            _emit_shaped_answer(chunks, on_token)
             on_done(None)
         except Exception as exc:
             on_done(f"\n\n[OpenAI error: {exc}]")
@@ -570,8 +607,10 @@ class LocalInferenceAnswerGenerator:
             return
         prompt = self._build_prompt(query, hits, history)
         try:
+            chunks: List[str] = []
             for token in self._runtime.generate_stream(prompt):
-                on_token(token)
+                chunks.append(token)
+            _emit_shaped_answer(chunks, on_token)
             on_done(None)
         except Exception as exc:
             on_done(f"\n\n[Local inference error: {exc}]")
@@ -640,6 +679,7 @@ class CodexCliAnswerGenerator:
             if not answer:
                 on_done("\n\n[Codex CLI error: no answer returned]")
                 return
+            answer = _shape_answer_text(answer)
             for chunk in self._chunks(answer):
                 on_token(chunk)
             on_done(None)

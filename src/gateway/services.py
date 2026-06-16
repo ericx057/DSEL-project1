@@ -14,6 +14,9 @@ from src.gateway.repositories import (
 )
 from src.gateway.security import HS256JWTVerifier
 
+
+RESPONSE_CACHE_POLICY_VERSION = "response-policy-v2"
+
 class CircuitBreaker:
     def __init__(self, failure_threshold: int = 3, recovery_timeout: int = 30):
         self.failure_threshold = failure_threshold
@@ -69,7 +72,7 @@ class CacheService:
         self.repository = repository
 
     def _generate_key(self, query: str, tier: AccessTier, scopes: List[str]) -> str:
-        raw_key = f"{query}:{tier}:{','.join(sorted(scopes))}"
+        raw_key = f"{RESPONSE_CACHE_POLICY_VERSION}:{query}:{tier}:{','.join(sorted(scopes))}"
         return hashlib.sha256(raw_key.encode()).hexdigest()
 
     async def get_cached_response(self, query: str, tier: AccessTier, scopes: List[str]) -> Optional[str]:

@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import pytest
 from httpx import AsyncClient, ASGITransport
 from fastapi import FastAPI
@@ -18,6 +19,7 @@ from tests.gateway.mocks import (
 )
 from src.gateway.model_hook import ModelHook
 from src.retrieval.database import InMemoryUnifiedStore
+from src.gateway.services import CacheService, RESPONSE_CACHE_POLICY_VERSION
 
 class StaticVerifier:
     def verify(self, authorization: str) -> User:
@@ -157,3 +159,58 @@ async def test_request_coalescing(test_app):
         assert results[1].status_code == 200
         assert results[0].text == "Slow Response"
         assert results[1].text == "Slow Response"
+
+
+def test_cache_key_includes_response_policy_version():
+    cache_svc = CacheService(InMemoryCacheRepository())
+
+    key = cache_svc._generate_key("TestQuery", AccessTier.T3, ["repo-a"])
+    legacy_key = hashlib.sha256("TestQuery:AccessTier.T3:repo-a".encode()).hexdigest()
+
+    assert RESPONSE_CACHE_POLICY_VERSION
+    assert key != legacy_key
+
+
+@pytest.mark.asyncio
+async def test_coalesced_subscriber_buffers_before_shaping(test_app):
+    fastapi_app, _, _, _ = test_app
+
+    class AlwaysLockedCacheRepository(InMemoryCacheRepository):
+        def __init__(self):
+            super().__init__()
+            self.locked_key = None
+
+        async def acquire_lock(self, key: str) -> bool:
+            self.locked_key = key
+            self._streams.setdefault(key, [])
+            return False
+
+    cache_repo = AlwaysLockedCacheRepository()
+    fastapi_app.dependency_overrides[get_cache_repo] = lambda: cache_repo
+
+    async with AsyncClient(transport=ASGITransport(app=fastapi_app), base_url="http://test") as ac:
+        pending = asyncio.create_task(
+            ac.post(
+                "/query",
+                json={"query": "SplitPath"},
+                headers={"Authorization": "user1"},
+            )
+        )
+        for _ in range(100):
+            if cache_repo.locked_key and cache_repo._streams.get(cache_repo.locked_key):
+                break
+            await asyncio.sleep(0.01)
+        assert cache_repo.locked_key is not None
+        assert cache_repo._streams.get(cache_repo.locked_key)
+        await cache_repo.publish(cache_repo.locked_key, r"Answer comes from src\gate")
+        await cache_repo.publish(cache_repo.locked_key, "way\\main.py\nclass Service:")
+        await cache_repo.publish(cache_repo.locked_key, "\n    def handle(self):\n        return value")
+        await cache_repo.release_lock(cache_repo.locked_key)
+        response = await pending
+
+    assert response.status_code == 200
+    assert r"src\gate" not in response.text
+    assert "way\\main.py" not in response.text
+    assert "class Service:" not in response.text
+    assert "def handle" not in response.text
+    assert "Answer comes from" in response.text

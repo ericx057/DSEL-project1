@@ -24,6 +24,7 @@ class BaseParser:
 
 from .python_ast import PythonAstParser
 from .cpp import CppSignatureParser
+from .generic_symbols import GenericSymbolParser
 from .tree_sitter import TreeSitterParser
 from .ctags import CtagsParser
 from .fallback import RegexParser, SlidingWindowParser
@@ -33,6 +34,7 @@ class CascadingParser(BaseParser):
         self.parsers = [
             PythonAstParser(),
             CppSignatureParser(),
+            GenericSymbolParser(),
             TreeSitterParser(),
             CtagsParser(),
             RegexParser(),

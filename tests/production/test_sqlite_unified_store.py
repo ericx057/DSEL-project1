@@ -1,7 +1,7 @@
 from pathlib import Path
 import sqlite3
 
-from retrieval.database import (
+from src.retrieval.database import (
     ArtifactRecord,
     GraphEdgeRecord,
     HashingEmbeddingProvider,
@@ -131,3 +131,44 @@ def test_sqlite_store_delete_repository_chunks_large_edge_deletes(tmp_path: Path
 
     assert store.vector_search("item", user_tier=3, repo_scope=["repo-a"], top_k=10) == []
     assert store.list_edges(user_tier=3, repo_scope=["repo-a"]) == []
+
+
+def test_lexical_search_merges_symbol_cache_and_exact_text_matches(tmp_path: Path):
+    store = SQLiteUnifiedStore(tmp_path / "cis.db", HashingEmbeddingProvider(dimensions=16))
+    store.upsert_artifacts(
+        [
+            ArtifactRecord(
+                artifact_id="repo-a:noisy-symbol",
+                repository="repo-a",
+                file_path="docs/checkout_flow.md",
+                language="markdown",
+                text="General checkout notes.",
+                tier=1,
+                fidelity="L-2",
+                symbol_name="refund_webhook_index",
+                kind="section",
+            ),
+            ArtifactRecord(
+                artifact_id="repo-a:exact-body",
+                repository="repo-a",
+                file_path="docs/payment.md",
+                language="markdown",
+                text="The refund webhook validates chargeback evidence and retries payment settlement.",
+                tier=1,
+                fidelity="L-4",
+                symbol_name="docs/payment.md",
+                kind="chunk",
+            ),
+        ]
+    )
+
+    results = store.lexical_search(
+        "refund webhook chargeback evidence settlement",
+        user_tier=1,
+        repo_scope=["repo-a"],
+        top_k=5,
+    )
+
+    result_ids = [item["id"] for item in results]
+    assert "repo-a:exact-body" in result_ids
+    assert result_ids.index("repo-a:exact-body") < result_ids.index("repo-a:noisy-symbol")
