@@ -46,7 +46,7 @@ async def test_model_hook_failure():
     async for chunk in hook.generate_stream("test prompt"):
         chunks.append(chunk)
         
-    assert chunks == ["\n[Inference Error: local inference engine unavailable]"]
+    assert chunks == ["\n[Inference Error: inference provider unavailable]"]
     assert cb.state == "OPEN"
 
 
@@ -61,7 +61,7 @@ async def test_model_hook_skips_backend_when_circuit_breaker_is_open():
     async for chunk in hook.generate_stream("test prompt"):
         chunks.append(chunk)
 
-    assert chunks == ["\n[Inference Error: local inference engine unavailable]"]
+    assert chunks == ["\n[Inference Error: inference provider unavailable]"]
     assert client.prompts == []
 
 
