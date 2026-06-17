@@ -1,6 +1,6 @@
 import pytest
 
-from src.gateway.model_hook import LlamaCppCompletionClient, ModelHook
+from src.gateway.model_hook import LlamaCppCompletionClient, ModelHook, OpenRouterChatCompletionClient, OpenRouterConfig
 from src.gateway.services import CircuitBreaker
 
 
@@ -112,5 +112,88 @@ async def test_llamacpp_completion_client_posts_to_native_completion_endpoint_wi
             "method": "POST",
             "url": "http://engine.local/completion",
             "json": {"prompt": "raw prompt", "stream": True, "n_predict": 128, "cache_prompt": True},
+        }
+    ]
+
+
+def test_model_hook_defaults_to_openrouter_client_from_environment(monkeypatch):
+    monkeypatch.delenv("CIS_INFERENCE_ENGINE_ID", raising=False)
+    monkeypatch.setenv("CIS_OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("CIS_OPENROUTER_MODEL", "anthropic/claude-sonnet-4")
+
+    hook = ModelHook()
+
+    assert hook.inference_engine_id == "openrouter:anthropic/claude-sonnet-4"
+    assert isinstance(hook.client, OpenRouterChatCompletionClient)
+
+
+@pytest.mark.asyncio
+async def test_openrouter_client_posts_chat_completion_request_and_streams_tokens(monkeypatch):
+    requests = []
+
+    class MockStreamResponse:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def raise_for_status(self):
+            pass
+
+        async def aiter_lines(self):
+            yield ": OPENROUTER PROCESSING"
+            yield 'data: {"choices":[{"delta":{"content":"Hello"},"finish_reason":null}]}'
+            yield 'data: {"choices":[{"delta":{"content":" world"},"finish_reason":"stop"}]}'
+            yield "data: [DONE]"
+
+    class MockAsyncClient:
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def stream(self, method, url, headers, json):
+            requests.append({"method": method, "url": url, "headers": headers, "json": json})
+            return MockStreamResponse()
+
+    import httpx
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    client = OpenRouterChatCompletionClient(
+        OpenRouterConfig(
+            api_key="test-key",
+            model="anthropic/claude-sonnet-4",
+            app_referer="https://example.com",
+            app_title="CIS",
+        )
+    )
+
+    chunks = []
+    async for chunk in client.text_generation("retrieval prompt", max_new_tokens=128):
+        chunks.append(chunk)
+
+    assert chunks == ["Hello", " world"]
+    assert requests == [
+        {
+            "method": "POST",
+            "url": "https://openrouter.ai/api/v1/chat/completions",
+            "headers": {
+                "Authorization": "Bearer test-key",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://example.com",
+                "X-OpenRouter-Title": "CIS",
+            },
+            "json": {
+                "model": "anthropic/claude-sonnet-4",
+                "messages": [{"role": "user", "content": "retrieval prompt"}],
+                "stream": True,
+                "max_tokens": 128,
+            },
         }
     ]
