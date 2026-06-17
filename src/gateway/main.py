@@ -240,7 +240,7 @@ def create_app(
 
         tier = await iam.get_tier(user.id)
         scopes = await scoping.resolve_scope(user, request.query)
-        inference_engine_used = getattr(selected_model_hook, "inference_engine_id", "llama.cpp")
+        inference_engine_used = getattr(selected_model_hook, "inference_engine_id", "openrouter")
         query_hash = cache._generate_key(request.query, tier, scopes)
         if not scopes:
             await audit.log(

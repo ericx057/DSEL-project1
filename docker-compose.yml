@@ -11,8 +11,13 @@ services:
       CIS_JWT_ISSUER: ${CIS_JWT_ISSUER:-cis}
       CIS_JWT_AUDIENCE: ${CIS_JWT_AUDIENCE:-developers}
       CIS_METRICS_TOKEN: ${CIS_METRICS_TOKEN:?set CIS_METRICS_TOKEN}
-      CIS_LLAMA_CPP_BASE_URL: ${CIS_LLAMA_CPP_BASE_URL:-http://llamacpp:8080}
-      CIS_INFERENCE_ENGINE_ID: ${CIS_INFERENCE_ENGINE_ID:-llama.cpp}
+      CIS_INFERENCE_PROVIDER: ${CIS_INFERENCE_PROVIDER:-openrouter}
+      CIS_OPENROUTER_API_KEY: ${CIS_OPENROUTER_API_KEY:?set CIS_OPENROUTER_API_KEY}
+      CIS_OPENROUTER_MODEL: ${CIS_OPENROUTER_MODEL:-~openai/gpt-latest}
+      CIS_OPENROUTER_BASE_URL: ${CIS_OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      CIS_OPENROUTER_REFERER: ${CIS_OPENROUTER_REFERER:-}
+      CIS_OPENROUTER_TITLE: ${CIS_OPENROUTER_TITLE:-Codebase Intelligence System}
+      CIS_INFERENCE_ENGINE_ID: ${CIS_INFERENCE_ENGINE_ID:-}
       CIS_REDIS_URL: redis://redis:6379/0
       CIS_BOOTSTRAP_USER: ${CIS_BOOTSTRAP_USER:-}
       CIS_BOOTSTRAP_GROUP: ${CIS_BOOTSTRAP_GROUP:-}
@@ -22,8 +27,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      llamacpp:
-        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
       interval: 30s
@@ -59,6 +62,8 @@ services:
 
   llamacpp:
     image: ${CIS_LLAMA_CPP_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda}
+    profiles:
+      - local-inference
     entrypoint: ["/bin/sh", "/entrypoint/llamacpp-entrypoint.sh"]
     expose:
       - "8080"

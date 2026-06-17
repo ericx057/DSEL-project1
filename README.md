@@ -38,14 +38,15 @@ python -m evaluation.harness_eval --out-dir cache/harness-eval-local
 
 ```bash
 docker compose --profile indexing run --rm indexer
-docker compose up gateway redis llamacpp prometheus
+docker compose up gateway redis prometheus
 ```
 
 Required environment for the compose path:
 
 - `CIS_JWT_SECRET`
 - `CIS_METRICS_TOKEN`
-- `CIS_LLAMA_CPP_MODEL_PATH` or a precision-specific model path such as `CIS_LLAMA_CPP_MODEL_FP16`
+- `CIS_OPENROUTER_API_KEY`
+- `CIS_OPENROUTER_MODEL` defaults to `~openai/gpt-latest` and can be set to any OpenRouter model slug
 
 The gateway exposes:
 

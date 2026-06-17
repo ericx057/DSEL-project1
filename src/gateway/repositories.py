@@ -16,7 +16,7 @@ def _ensure_inference_engine_column(connection: sqlite3.Connection, table: str) 
     if "model_used" in columns:
         connection.execute(f"ALTER TABLE {table} RENAME COLUMN model_used TO inference_engine_used")
         return
-    connection.execute(f"ALTER TABLE {table} ADD COLUMN inference_engine_used TEXT NOT NULL DEFAULT 'llama.cpp'")
+    connection.execute(f"ALTER TABLE {table} ADD COLUMN inference_engine_used TEXT NOT NULL DEFAULT 'openrouter'")
 
 
 class AccessMatrixRepository(ABC):

@@ -16,7 +16,7 @@ This service is a retrieval-backed code intelligence gateway. The production pat
 | Harness | Retrieval, cache decisions, model calls, response policy, trace recording | yes |
 | SQLite index | Ranked source artifacts and graph edges | yes, must contain artifacts |
 | Redis | Shared cache and coalescing across gateway replicas | yes for multi-replica production |
-| llama.cpp | Local model adapter behind `ModelHook` | degraded mode can still return retrieval fallback |
+| OpenRouter | Hosted model provider behind `ModelHook` | degraded mode can still return retrieval fallback |
 | Prometheus | Scrapes `/metrics` using `CIS_METRICS_TOKEN` | no |
 
 ## CI Protocol
@@ -42,7 +42,7 @@ Required gates before deploy:
 Use a two-stage promotion path:
 
 1. Build and tag image: `ghcr.io/<owner>/<repo>:<git-sha>`.
-2. Deploy to staging with production-like Redis, SQLite volume, and llama.cpp endpoint.
+2. Deploy to staging with production-like Redis, SQLite volume, and OpenRouter credentials.
 3. Run smoke checks:
    - `GET /health` returns 200.
    - `GET /ready` returns 200 and reports indexed artifacts.
@@ -70,7 +70,10 @@ Required:
 | `CIS_JWT_AUDIENCE` | Expected JWT audience |
 | `CIS_METRICS_TOKEN` | Token for `/metrics` |
 | `CIS_REDIS_URL` | Redis URL for shared cache and coalescing |
-| `CIS_LLAMA_CPP_BASE_URL` | llama.cpp server base URL |
+| `CIS_INFERENCE_PROVIDER` | `openrouter` for hosted inference |
+| `CIS_OPENROUTER_API_KEY` | OpenRouter API key used by `ModelHook` |
+| `CIS_OPENROUTER_MODEL` | OpenRouter model slug, default `~openai/gpt-latest` |
+| `CIS_OPENROUTER_BASE_URL` | OpenRouter API base URL, default `https://openrouter.ai/api/v1` |
 
 Indexing:
 
@@ -82,10 +85,12 @@ Indexing:
 | `CIS_EMBEDDING_MODEL` | Embedding model name |
 | `CIS_EMBEDDING_TRUST_REMOTE_CODE` | Whether transformer loading can use remote model code |
 
-llama.cpp:
+Optional local llama.cpp profile:
 
 | Variable | Purpose |
 | --- | --- |
+| `CIS_INFERENCE_PROVIDER` | Set to `llama.cpp` to use the local profile instead of OpenRouter |
+| `CIS_LLAMA_CPP_BASE_URL` | llama.cpp server base URL |
 | `CIS_LLAMA_CPP_MODEL_PATH` | Default GGUF path |
 | `CIS_LLAMA_CPP_MODEL_FP16` | FP16 model path override |
 | `CIS_LLAMA_CPP_MODEL_FP8` | FP8 model path override |
@@ -106,7 +111,7 @@ Bootstrap helpers:
 
 1. Provision persistent volume for `CIS_DATA_DIR`.
 2. Start Redis.
-3. Start or point to llama.cpp.
+3. Configure `CIS_OPENROUTER_API_KEY` and `CIS_OPENROUTER_MODEL`.
 4. Run the indexer:
 
 ```bash
@@ -137,7 +142,7 @@ Readiness intentionally fails when the circuit breaker is open, but `/query` sti
 The production response contract is:
 
 - Cache hits still go through `ResponsePolicy`; legacy or poisoned cache strings are treated as untrusted.
-- If llama.cpp is unavailable, `ModelHook` avoids known-bad backend calls while the circuit is open.
+- If OpenRouter is unavailable, `ModelHook` avoids known-bad provider calls while the circuit is open.
 - Model error text is never returned as the answer. `ResponsePolicy` falls back to deterministic retrieval summaries.
 - If retrieval evidence is thin, the response says what can and cannot be confirmed.
 - If retrieval finds nothing, the response says no indexed context matched and does not speculate.
