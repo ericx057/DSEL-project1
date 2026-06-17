@@ -23,6 +23,18 @@ def test_llamacpp_compose_service_is_internal_only():
 
     assert "\n    expose:" in llamacpp_section
     assert "\n    ports:" not in llamacpp_section
+    assert "\n    profiles:" in llamacpp_section
+
+
+def test_gateway_compose_uses_openrouter_without_llamacpp_dependency():
+    compose_text = (ROOT / "docker-compose.yml").read_text()
+    gateway_section = _service_section(compose_text, "gateway")
+
+    assert "CIS_INFERENCE_PROVIDER: ${CIS_INFERENCE_PROVIDER:-openrouter}" in gateway_section
+    assert "CIS_OPENROUTER_API_KEY: ${CIS_OPENROUTER_API_KEY:?set CIS_OPENROUTER_API_KEY}" in gateway_section
+    assert "CIS_OPENROUTER_MODEL: ${CIS_OPENROUTER_MODEL:-~openai/gpt-latest}" in gateway_section
+    assert "CIS_LLAMA_CPP_BASE_URL" not in gateway_section
+    assert "llamacpp:" not in gateway_section
 
 
 def test_llamacpp_entrypoint_validates_context_window():
