@@ -26,6 +26,7 @@ Normal responses are human-language summaries. They should not be raw file paths
 - Indexer entrypoint: `python -m src.ingestion.cli`
 - Harness eval: `python -m evaluation.harness_eval`
 - Deployment runbook: [docs/production-deployment.md](docs/production-deployment.md)
+- CI/CD runbook: [docs/ci-cd.md](docs/ci-cd.md)
 
 ## Local Verification
 
@@ -71,4 +72,4 @@ CIS_EMBEDDING_BACKEND=hashing \
 
 ## CI
 
-GitHub Actions runs the full pytest suite, the harness eval gate, and a production Docker build on `main` and `master`. Generated eval outputs belong under `cache/` or `results/harness-eval-*` and are ignored by git.
+GitHub Actions runs the full pytest suite, the harness eval gate, and a production Docker build on `main` and `master`. See [docs/ci-cd.md](docs/ci-cd.md) for image tags, promotion, smoke checks, rollback, and troubleshooting. Generated eval outputs belong under `cache/` or `results/harness-eval-*` and are ignored by git.

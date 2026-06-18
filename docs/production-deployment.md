@@ -21,13 +21,7 @@ This service is a retrieval-backed code intelligence gateway. The production pat
 
 ## CI Protocol
 
-GitHub Actions runs on `main` and `master` pushes and pull requests:
-
-1. Install Python 3.13 dependencies from `requirements.txt`.
-2. Run the full pytest suite.
-3. Run `python -m evaluation.harness_eval --out-dir cache/harness-eval-ci`.
-4. Upload the harness eval report as a CI artifact.
-5. Build the production Docker image from `Dockerfile`.
+GitHub Actions runs on `main` and `master` pushes and pull requests. The CI/CD runbook is [docs/ci-cd.md](ci-cd.md).
 
 Required gates before deploy:
 
@@ -39,16 +33,11 @@ Required gates before deploy:
 
 ## CD Protocol
 
-Use a two-stage promotion path:
+Use the two-stage promotion path in [docs/ci-cd.md](ci-cd.md):
 
 1. Build and tag image: `ghcr.io/<owner>/<repo>:<git-sha>`.
 2. Deploy to staging with production-like Redis, SQLite volume, and OpenRouter credentials.
-3. Run smoke checks:
-   - `GET /health` returns 200.
-   - `GET /ready` returns 200 and reports indexed artifacts.
-   - `GET /metrics` returns Prometheus text when called with the metrics token.
-   - An authenticated `/query` returns human language, a `trace_id`, and no file-path/source dump.
-   - Repeating the same `/query` returns a cache hit with the same response policy applied.
+3. Run the smoke checks from the runbook.
 4. Promote the exact same image digest to production after approval.
 5. Keep the previous production image and data volume snapshot available for rollback.
 
