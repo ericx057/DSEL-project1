@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import AsyncGenerator, Protocol
 
@@ -13,6 +14,9 @@ from src.retrieval.context_summary import RetrievedContextSummarizer, ResponseSh
 from src.retrieval.database import UnifiedStore
 from src.retrieval.hybrid import HybridSearcher
 from src.retrieval.reranker import LexicalReranker
+
+
+logger = logging.getLogger(__name__)
 
 
 class ModelAdapter(Protocol):
@@ -55,21 +59,40 @@ class HarnessService:
         started = time.perf_counter()
         trace_id = self.trace_recorder.new_trace_id()
         key = self.cache_key_for(task)
-        cached_payload = await self._get_cached_payload(task, key)
+        cache_available = True
+        lock_acquired = False
+
+        try:
+            cached_payload = await self._get_cached_payload(task, key)
+        except Exception:
+            logger.exception("Cache lookup failed; bypassing cache for query")
+            cached_payload = None
+            cache_available = False
+
         cached_decision = self._cached_decision(cached_payload)
         if cached_decision is not None:
             return self._result_from_decision(task, trace_id, "hit", cached_decision, [], "", started)
 
-        acquired = await self._acquire_lock(task, key)
-        if not acquired:
-            response_text = await self._collect_coalesced_response(task, key)
-            decision = self.policy.sanitize_cached(response_text) or PolicyDecision(
-                response=ResponseShaper().shape(response_text),
-                accepted=False,
-                source="coalesced",
-                flags=["coalesced_unstructured"],
-            )
-            return self._result_from_decision(task, trace_id, "coalesced", decision, [], "", started)
+        if cache_available:
+            try:
+                lock_acquired = await self._acquire_lock(task, key)
+            except Exception:
+                logger.exception("Cache lock acquisition failed; bypassing cache for query")
+                cache_available = False
+
+        if cache_available and not lock_acquired:
+            try:
+                response_text = await self._collect_coalesced_response(task, key)
+                decision = self.policy.sanitize_cached(response_text) or PolicyDecision(
+                    response=ResponseShaper().shape(response_text),
+                    accepted=False,
+                    source="coalesced",
+                    flags=["coalesced_unstructured"],
+                )
+                return self._result_from_decision(task, trace_id, "coalesced", decision, [], "", started)
+            except Exception:
+                logger.exception("Coalesced cache subscription failed; running query directly")
+                cache_available = False
 
         packet = RetrievalPacket.empty(key.index_fingerprint, self.policy.version)
         prompt = ""
@@ -95,11 +118,12 @@ class HarnessService:
                 index_fingerprint=key.index_fingerprint,
                 quality_flags=result.quality_flags,
             ).to_json()
-            await self._set_cached_payload(task, key, payload)
-            await self._publish(task, key, payload)
+            if cache_available:
+                await self._store_cache_payload(task, key, payload)
             return result
         finally:
-            await self._release_lock(task, key)
+            if cache_available and lock_acquired:
+                await self._safe_release_lock(task, key)
 
     def _retrieve(self, task: TaskSpec, index_fingerprint: str) -> RetrievalPacket:
         searcher = HybridSearcher(self.store)
@@ -196,6 +220,22 @@ class HarnessService:
             model_id=task.model_id,
             index_fingerprint=key.index_fingerprint,
         )
+
+    async def _store_cache_payload(self, task: TaskSpec, key: HarnessCacheKey, payload: str) -> None:
+        try:
+            await self._set_cached_payload(task, key, payload)
+        except Exception:
+            logger.exception("Cache write failed; continuing without storing response")
+        try:
+            await self._publish(task, key, payload)
+        except Exception:
+            logger.exception("Cache publish failed; continuing without notifying coalesced subscribers")
+
+    async def _safe_release_lock(self, task: TaskSpec, key: HarnessCacheKey) -> None:
+        try:
+            await self._release_lock(task, key)
+        except Exception:
+            logger.exception("Cache lock release failed after query completion")
 
     async def _release_lock(self, task: TaskSpec, key: HarnessCacheKey) -> None:
         await self.cache.release_lock(

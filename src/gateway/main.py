@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import Optional
 
@@ -36,6 +37,7 @@ from src.harness.trace import InMemoryTraceRecorder, TraceRecorder
 
 global_circuit_breaker = CircuitBreaker()
 global_trace_recorder = InMemoryTraceRecorder()
+logger = logging.getLogger(__name__)
 
 
 def get_access_matrix_repo() -> AccessMatrixRepository:
@@ -99,6 +101,25 @@ def get_audit_service(repo: AuditRepository = Depends(get_audit_repo)) -> AuditS
 
 def get_model_hook() -> ModelHook:
     return ModelHook(circuit_breaker=global_circuit_breaker)
+
+
+async def _log_audit_best_effort(audit: AuditService, event: AuditEvent) -> None:
+    try:
+        await audit.log(event)
+    except Exception:
+        logger.exception("Audit write failed after successful query")
+
+
+async def _add_history_best_effort(
+    history: Optional[UserHistoryRepository],
+    record: HistoryRecord,
+) -> None:
+    if history is None:
+        return
+    try:
+        await history.add_record(record)
+    except Exception:
+        logger.exception("History write failed after successful query")
 
 
 def create_app(
@@ -277,7 +298,8 @@ def create_app(
         ).execute(task)
 
         if result.cache_status == "hit":
-            await audit.log(
+            await _log_audit_best_effort(
+                audit,
                 AuditEvent(
                     user_id=user.id,
                     access_tier=tier,
@@ -292,18 +314,19 @@ def create_app(
             return {"response": result.response, "cached": True, "trace_id": result.trace_id}
 
         if result.cache_status == "miss":
-            if history is not None:
-                await history.add_record(
-                    HistoryRecord(
-                        user_id=user.id,
-                        query=request.query,
-                        response=result.response,
-                        inference_engine_used=inference_engine_used,
-                        repo_scope=scopes,
-                        created_at=time.time(),
-                    )
+            await _add_history_best_effort(
+                history,
+                HistoryRecord(
+                    user_id=user.id,
+                    query=request.query,
+                    response=result.response,
+                    inference_engine_used=inference_engine_used,
+                    repo_scope=scopes,
+                    created_at=time.time(),
                 )
-            await audit.log(
+            )
+            await _log_audit_best_effort(
+                audit,
                 AuditEvent(
                     user_id=user.id,
                     access_tier=tier,

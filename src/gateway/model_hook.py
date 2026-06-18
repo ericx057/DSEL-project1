@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_OPENROUTER_MODEL = "~openai/gpt-latest"
+OPENROUTER_UNAVAILABLE_MESSAGE = "OpenRouter inference provider unavailable"
 
 
 class TextGenerationClient(Protocol):
@@ -119,9 +120,9 @@ class OpenRouterChatCompletionClient:
         details: bool = False,
     ) -> AsyncGenerator[str, None]:
         if not self.config.api_key.strip():
-            raise ValueError("OpenRouter API key is not configured")
+            raise OpenRouterStreamError(OPENROUTER_UNAVAILABLE_MESSAGE)
         if not self.config.model.strip():
-            raise ValueError("OpenRouter model is not configured")
+            raise OpenRouterStreamError(OPENROUTER_UNAVAILABLE_MESSAGE)
 
         payload = {
             "model": self.config.model,
@@ -135,34 +136,39 @@ class OpenRouterChatCompletionClient:
             pool=min(10.0, self.config.timeout_seconds),
         )
         started_at = time.monotonic()
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            if not stream:
-                response = await client.post(
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                if not stream:
+                    response = await client.post(
+                        self.config.chat_completions_url,
+                        headers=self._headers(),
+                        json=payload,
+                    )
+                    response.raise_for_status()
+                    content = self._message_content(response.json())
+                    if content:
+                        yield content
+                    return
+
+                async with client.stream(
+                    "POST",
                     self.config.chat_completions_url,
                     headers=self._headers(),
                     json=payload,
-                )
-                response.raise_for_status()
-                content = self._message_content(response.json())
-                if content:
-                    yield content
-                return
-
-            async with client.stream(
-                "POST",
-                self.config.chat_completions_url,
-                headers=self._headers(),
-                json=payload,
-            ) as response:
-                response.raise_for_status()
-                async for line in response.aiter_lines():
-                    if time.monotonic() - started_at > self.config.max_stream_seconds:
-                        raise TimeoutError("OpenRouter stream exceeded maximum duration")
-                    token, done = self._decode_stream_line(line)
-                    if token:
-                        yield token
-                    if done:
-                        break
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if time.monotonic() - started_at > self.config.max_stream_seconds:
+                            raise TimeoutError("OpenRouter stream exceeded maximum duration")
+                        token, done = self._decode_stream_line(line)
+                        if token:
+                            yield token
+                        if done:
+                            break
+        except OpenRouterStreamError:
+            raise
+        except (httpx.HTTPError, TimeoutError) as exc:
+            raise OpenRouterStreamError(OPENROUTER_UNAVAILABLE_MESSAGE) from exc
 
     def _headers(self) -> dict[str, str]:
         headers = {
@@ -194,8 +200,7 @@ class OpenRouterChatCompletionClient:
             return "", False
         error = data.get("error")
         if error:
-            message = error.get("message") if isinstance(error, dict) else str(error)
-            raise OpenRouterStreamError(message or "OpenRouter stream returned an error")
+            raise OpenRouterStreamError(OPENROUTER_UNAVAILABLE_MESSAGE)
         return cls._choice_content(data)
 
     @classmethod
