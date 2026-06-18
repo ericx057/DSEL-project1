@@ -11,10 +11,12 @@ from httpx import ASGITransport, AsyncClient
 from src.gateway.main import create_app, global_circuit_breaker
 from src.gateway.models import AccessTier, QueryRequest
 from src.gateway.repositories import (
+    AuditRepository,
     SQLiteAccessMatrixRepository,
     SQLiteAuditRepository,
     SQLiteScopeRepository,
     SQLiteUserHistoryRepository,
+    UserHistoryRepository,
 )
 from src.gateway.security import HS256JWTVerifier
 from src.gateway.services import InMemorySemanticCacheRepository, TokenBucketRateLimitRepository
@@ -41,6 +43,55 @@ class RecordingModelHook(ModelHook):
     async def generate_stream(self, prompt: str):
         self.prompts.append(prompt)
         yield "answer"
+
+
+class FailingAuditRepository(AuditRepository):
+    async def log_event(self, event):
+        raise RuntimeError("audit store unavailable")
+
+
+class FailingHistoryRepository(UserHistoryRepository):
+    async def add_record(self, record):
+        raise RuntimeError("history store unavailable")
+
+    def list_for_user(self, user_id: str, limit: int = 50):
+        return []
+
+
+def _production_query_app(tmp_path: Path, *, audit_repo, history_repo=None):
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+    store.upsert_artifacts(
+        [
+            ArtifactRecord("repo-a:api", "repo-a", "app.py", "python", "def public_api()", 1, "L-1", "public_api"),
+        ]
+    )
+    access = SQLiteAccessMatrixRepository(tmp_path / "access.db")
+    access.set_user_tier("user-1", AccessTier.T1)
+    scopes = SQLiteScopeRepository(tmp_path / "access.db")
+    scopes.grant_group_scope("platform", "repo-a")
+    return create_app(
+        access_matrix_repo=access,
+        scope_repo=scopes,
+        cache_repo=InMemorySemanticCacheRepository(),
+        rate_limit_repo=TokenBucketRateLimitRepository(capacity=20, refill_per_minute=20),
+        audit_repo=audit_repo,
+        history_repo=history_repo,
+        retrieval_store=store,
+        model_hook=RecordingModelHook(),
+        jwt_verifier=HS256JWTVerifier("secret", issuer="cis", audience="developers"),
+    )
+
+
+def _production_token() -> str:
+    return _token(
+        {
+            "sub": "user-1",
+            "groups": ["platform"],
+            "iss": "cis",
+            "aud": "developers",
+            "exp": int(time.time()) + 60,
+        }
+    )
 
 
 @pytest.mark.asyncio
@@ -102,6 +153,42 @@ async def test_production_query_flow_retrieves_before_inference_and_logs(tmp_pat
     assert audit.list_events()[0].inference_engine_used == "recording-engine"
     assert history.list_for_user("user-1")[0].response == "answer"
     assert history.list_for_user("user-1")[0].inference_engine_used == "recording-engine"
+
+
+@pytest.mark.asyncio
+async def test_successful_query_response_survives_history_write_failure(tmp_path: Path):
+    audit = SQLiteAuditRepository(tmp_path / "audit.db")
+    app = _production_query_app(tmp_path, audit_repo=audit, history_repo=FailingHistoryRepository())
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/query",
+            json={"query": "public api"},
+            headers={"Authorization": f"Bearer {_production_token()}"},
+        )
+
+    assert response.status_code == 200
+    assert response.text == "answer"
+    assert audit.list_events()[0].cache_hit is False
+
+
+@pytest.mark.asyncio
+async def test_successful_query_response_survives_audit_write_failure(tmp_path: Path):
+    app = _production_query_app(
+        tmp_path,
+        audit_repo=FailingAuditRepository(),
+        history_repo=SQLiteUserHistoryRepository(tmp_path / "history.db"),
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/query",
+            json={"query": "public api"},
+            headers={"Authorization": f"Bearer {_production_token()}"},
+        )
+
+    assert response.status_code == 200
+    assert response.text == "answer"
 
 
 def test_query_request_rejects_model_override():

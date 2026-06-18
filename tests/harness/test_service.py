@@ -58,6 +58,46 @@ def _checkout_artifact() -> ArtifactRecord:
     )
 
 
+class FailingCacheRepository(InMemorySemanticCacheRepository):
+    def __init__(self, operation: str):
+        super().__init__()
+        self.operation = operation
+
+    async def get(self, key: str):
+        if self.operation == "get":
+            raise RuntimeError("cache get unavailable")
+        return await super().get(key)
+
+    async def set(self, key: str, value: str, ttl_seconds: int) -> None:
+        if self.operation == "set":
+            raise RuntimeError("cache set unavailable")
+        await super().set(key, value, ttl_seconds)
+
+    async def acquire_lock(self, key: str) -> bool:
+        if self.operation == "acquire_lock":
+            raise RuntimeError("cache lock unavailable")
+        return await super().acquire_lock(key)
+
+    async def publish(self, key: str, chunk: str) -> None:
+        if self.operation == "publish":
+            raise RuntimeError("cache publish unavailable")
+        await super().publish(key, chunk)
+
+    async def release_lock(self, key: str) -> None:
+        if self.operation == "release_lock":
+            raise RuntimeError("cache release unavailable")
+        await super().release_lock(key)
+
+
+class SubscribeFailingCacheRepository(InMemorySemanticCacheRepository):
+    async def acquire_lock(self, key: str) -> bool:
+        return False
+
+    async def subscribe(self, key: str):
+        raise RuntimeError("cache subscribe unavailable")
+        yield ""
+
+
 @pytest.mark.asyncio
 async def test_harness_cache_key_includes_policy_model_scope_tier_mode_and_index(tmp_path: Path):
     store = _store(tmp_path, [_checkout_artifact()])
@@ -163,6 +203,56 @@ async def test_harness_coalesced_request_receives_final_shaped_response(tmp_path
     assert "src/services/checkout.ts" not in second.response
     assert sorted(record.cache_status for record in trace.records) == ["coalesced", "miss"]
     assert len(model.prompts) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["get", "acquire_lock"])
+async def test_harness_bypasses_cache_when_lookup_or_lock_fails(tmp_path: Path, operation: str):
+    store = _store(tmp_path, [_checkout_artifact()])
+    cache = CacheService(FailingCacheRepository(operation))
+    trace = InMemoryTraceRecorder()
+    model = FakeModelAdapter(["CheckoutService validates checkout authorization."])
+    harness = HarnessService(store=store, cache=cache, model=model, trace_recorder=trace)
+
+    result = await harness.execute(_task())
+
+    assert result.cache_status == "miss"
+    assert result.response == "CheckoutService validates checkout authorization."
+    assert len(model.prompts) == 1
+    assert trace.records[0].cache_status == "miss"
+
+
+@pytest.mark.asyncio
+async def test_harness_bypasses_cache_when_coalesced_subscribe_fails(tmp_path: Path):
+    store = _store(tmp_path, [_checkout_artifact()])
+    cache = CacheService(SubscribeFailingCacheRepository())
+    trace = InMemoryTraceRecorder()
+    model = FakeModelAdapter(["CheckoutService validates checkout authorization."])
+    harness = HarnessService(store=store, cache=cache, model=model, trace_recorder=trace)
+
+    result = await harness.execute(_task())
+
+    assert result.cache_status == "miss"
+    assert result.response == "CheckoutService validates checkout authorization."
+    assert len(model.prompts) == 1
+    assert trace.records[0].cache_status == "miss"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["set", "publish", "release_lock"])
+async def test_harness_returns_response_when_cache_write_or_release_fails(tmp_path: Path, operation: str):
+    store = _store(tmp_path, [_checkout_artifact()])
+    cache = CacheService(FailingCacheRepository(operation))
+    trace = InMemoryTraceRecorder()
+    model = FakeModelAdapter(["CheckoutService validates checkout authorization."])
+    harness = HarnessService(store=store, cache=cache, model=model, trace_recorder=trace)
+
+    result = await harness.execute(_task())
+
+    assert result.cache_status == "miss"
+    assert result.response == "CheckoutService validates checkout authorization."
+    assert len(model.prompts) == 1
+    assert trace.records[0].cache_status == "miss"
 
 
 def test_harness_cache_key_value_changes_for_core_dimensions():

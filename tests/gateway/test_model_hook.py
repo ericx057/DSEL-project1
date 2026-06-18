@@ -1,6 +1,12 @@
 import pytest
 
-from src.gateway.model_hook import LlamaCppCompletionClient, ModelHook, OpenRouterChatCompletionClient, OpenRouterConfig
+from src.gateway.model_hook import (
+    LlamaCppCompletionClient,
+    ModelHook,
+    OpenRouterChatCompletionClient,
+    OpenRouterConfig,
+    OpenRouterStreamError,
+)
 from src.gateway.services import CircuitBreaker
 
 
@@ -197,3 +203,110 @@ async def test_openrouter_client_posts_chat_completion_request_and_streams_token
             },
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_openrouter_client_classifies_stream_error_without_provider_message(monkeypatch):
+    class MockStreamResponse:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def raise_for_status(self):
+            pass
+
+        async def aiter_lines(self):
+            yield 'data: {"error":{"message":"invalid_api_key: vendor-specific secret"}}'
+
+    class MockAsyncClient:
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def stream(self, method, url, headers, json):
+            return MockStreamResponse()
+
+    import httpx
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    client = OpenRouterChatCompletionClient(OpenRouterConfig(api_key="test-key", model="test-model"))
+
+    with pytest.raises(OpenRouterStreamError) as exc_info:
+        async for _ in client.text_generation("retrieval prompt"):
+            pass
+
+    assert str(exc_info.value) == "OpenRouter inference provider unavailable"
+    assert "invalid_api_key" not in str(exc_info.value)
+    assert "vendor-specific" not in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_openrouter_client_classifies_http_status_failures(monkeypatch):
+    class MockStreamResponse:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def raise_for_status(self):
+            import httpx
+
+            request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+            response = httpx.Response(401, request=request, text="invalid_api_key")
+            raise httpx.HTTPStatusError("401 invalid_api_key", request=request, response=response)
+
+        async def aiter_lines(self):
+            yield "data: [DONE]"
+
+    class MockAsyncClient:
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def stream(self, method, url, headers, json):
+            return MockStreamResponse()
+
+    import httpx
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    client = OpenRouterChatCompletionClient(OpenRouterConfig(api_key="test-key", model="test-model"))
+
+    with pytest.raises(OpenRouterStreamError) as exc_info:
+        async for _ in client.text_generation("retrieval prompt"):
+            pass
+
+    assert str(exc_info.value) == "OpenRouter inference provider unavailable"
+    assert "invalid_api_key" not in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "config",
+    [
+        OpenRouterConfig(api_key="", model="test-model"),
+        OpenRouterConfig(api_key="test-key", model=""),
+    ],
+)
+async def test_openrouter_client_classifies_missing_configuration(config):
+    client = OpenRouterChatCompletionClient(config)
+
+    with pytest.raises(OpenRouterStreamError) as exc_info:
+        async for _ in client.text_generation("retrieval prompt"):
+            pass
+
+    assert str(exc_info.value) == "OpenRouter inference provider unavailable"
