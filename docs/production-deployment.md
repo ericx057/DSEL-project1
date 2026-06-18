@@ -29,6 +29,7 @@ Required gates before deploy:
 - Harness eval has 100 percent policy/cache safety.
 - Harness eval multilingual concrete-answer rate is at least 95 percent.
 - Docker image builds from `requirements-prod.txt`.
+- Built image passes `scripts/ci_container_smoke.py` before any push.
 - No deployment proceeds from a dirty release branch or without a rollback target image.
 
 ## CD Protocol
@@ -158,7 +159,7 @@ Latency:
 - Cache-hit integration path target: p95 under 50 ms.
 - Harness overhead target: p95 under 20 ms excluding retrieval/model time.
 - Circuit-open model calls short-circuit locally instead of waiting on a failing backend.
-- Canary rollout watches p95 latency and circuit breaker metrics before increasing traffic.
+- Canary rollout watches `cis_http_request_duration_seconds_*`, `cis_http_requests_total`, `cis_query_cache_total`, `cis_query_fallback_total`, and circuit breaker metrics before increasing traffic.
 
 ## Rollback
 

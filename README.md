@@ -72,4 +72,4 @@ CIS_EMBEDDING_BACKEND=hashing \
 
 ## CI
 
-GitHub Actions runs the full pytest suite, the harness eval gate, and a production Docker build on `main` and `master`. See [docs/ci-cd.md](docs/ci-cd.md) for image tags, promotion, smoke checks, rollback, and troubleshooting. Generated eval outputs belong under `cache/` or `results/harness-eval-*` and are ignored by git.
+GitHub Actions runs the full pytest suite, the harness eval gate, a production Docker build, and a container smoke test on `main` and `master`. See [docs/ci-cd.md](docs/ci-cd.md) for image tags, promotion, smoke checks, rollback, and troubleshooting. Generated eval outputs belong under `cache/` or `results/harness-eval-*` and are ignored by git.
