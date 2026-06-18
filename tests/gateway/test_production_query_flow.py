@@ -220,11 +220,72 @@ async def test_metrics_endpoint_requires_configured_token(tmp_path: Path):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         denied = await client.get("/metrics")
+        wrong = await client.get("/metrics", headers={"Authorization": "Bearer wrong-secret"})
         allowed = await client.get("/metrics", headers={"Authorization": "Bearer metrics-secret"})
 
     assert denied.status_code == 404
+    assert wrong.status_code == 404
     assert allowed.status_code == 200
     assert "cis_circuit_breaker_open" in allowed.text
+
+
+@pytest.mark.asyncio
+async def test_metrics_records_request_latency_cache_status_and_fallback(tmp_path: Path):
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+    store.upsert_artifacts(
+        [
+            ArtifactRecord(
+                "repo-a:indexer",
+                "repo-a",
+                "indexer.py",
+                "python",
+                "class RepositoryIndexer index_repository _iter_files _index_file upsert_artifacts",
+                3,
+                "L-1",
+                "RepositoryIndexer",
+                kind="class-implementation",
+            )
+        ]
+    )
+    access = SQLiteAccessMatrixRepository(tmp_path / "access.db")
+    access.set_user_tier("user-1", AccessTier.T3)
+    scopes = SQLiteScopeRepository(tmp_path / "access.db")
+    scopes.grant_group_scope("platform", "repo-a")
+
+    class UnavailableModelHook(ModelHook):
+        def __init__(self):
+            self.inference_engine_id = "unavailable-engine"
+
+        async def generate_stream(self, prompt: str):
+            yield "\n[Inference Error: local inference engine unavailable]"
+
+    app = create_app(
+        access_matrix_repo=access,
+        scope_repo=scopes,
+        cache_repo=InMemorySemanticCacheRepository(),
+        rate_limit_repo=TokenBucketRateLimitRepository(),
+        audit_repo=SQLiteAuditRepository(tmp_path / "audit.db"),
+        retrieval_store=store,
+        model_hook=UnavailableModelHook(),
+        jwt_verifier=HS256JWTVerifier("secret", issuer="cis", audience="developers"),
+        metrics_token="metrics-secret",
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        query_response = await client.post(
+            "/query",
+            json={"query": "What does RepositoryIndexer do?"},
+            headers={"Authorization": f"Bearer {_production_token()}"},
+        )
+        metrics_response = await client.get("/metrics", headers={"Authorization": "Bearer metrics-secret"})
+
+    assert query_response.status_code == 200
+    metrics_text = metrics_response.text
+    assert 'cis_http_requests_total{method="POST",path="/query",status="200"} 1' in metrics_text
+    assert 'cis_http_request_duration_seconds_count{method="POST",path="/query"} 1' in metrics_text
+    assert 'cis_http_request_duration_seconds_bucket{method="POST",path="/query",le="+Inf"} 1' in metrics_text
+    assert 'cis_query_cache_total{status="miss"} 1' in metrics_text
+    assert 'cis_query_fallback_total{reason="fallback_used"} 1' in metrics_text
 
 
 @pytest.mark.asyncio
