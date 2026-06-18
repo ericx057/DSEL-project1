@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from src.retrieval.database import UnifiedStore
 from src.diagram.service import DiagramService
+from src.gateway.metrics import GatewayMetrics
 from src.gateway.model_hook import ModelHook
 from src.gateway.models import AuditEvent, HistoryRecord, QueryRequest
 from src.gateway.readiness import ReadinessProbe
@@ -137,18 +138,30 @@ def create_app(
     trace_recorder: Optional[TraceRecorder] = None,
 ) -> FastAPI:
     api = FastAPI(title="Codebase Intelligence System - Gateway", version="1.0.0")
+    metrics_registry = GatewayMetrics()
 
     @api.middleware("http")
     async def security_headers(request, call_next):
-        response = await call_next(request)
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault("Referrer-Policy", "no-referrer")
-        response.headers.setdefault(
-            "Content-Security-Policy",
-            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'",
-        )
-        return response
+        started_at = time.perf_counter()
+        status_code = 500
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            response.headers.setdefault("X-Content-Type-Options", "nosniff")
+            response.headers.setdefault("X-Frame-Options", "DENY")
+            response.headers.setdefault("Referrer-Policy", "no-referrer")
+            response.headers.setdefault(
+                "Content-Security-Policy",
+                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'",
+            )
+            return response
+        finally:
+            metrics_registry.observe_http_request(
+                request.method,
+                request.url.path,
+                status_code,
+                time.perf_counter() - started_at,
+            )
 
     if access_matrix_repo is not None:
         api.dependency_overrides[get_access_matrix_repo] = lambda: access_matrix_repo
@@ -236,6 +249,7 @@ def create_app(
                 "# HELP cis_circuit_breaker_failures Current circuit breaker failure count.",
                 "# TYPE cis_circuit_breaker_failures gauge",
                 f"cis_circuit_breaker_failures {global_circuit_breaker.failure_count}",
+                metrics_registry.render_prometheus(),
                 "",
             ]
         )
@@ -296,6 +310,7 @@ def create_app(
             model=selected_model_hook,
             trace_recorder=trace_recorder,
         ).execute(task)
+        metrics_registry.record_query(result.cache_status, result.quality_flags)
 
         if result.cache_status == "hit":
             await _log_audit_best_effort(
