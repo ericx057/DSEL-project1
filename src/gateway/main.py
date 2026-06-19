@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from src.retrieval.database import UnifiedStore
 from src.diagram.service import DiagramService
+from src.gateway.abuse import AbuseProtector
 from src.gateway.metrics import GatewayMetrics
 from src.gateway.model_hook import ModelHook
 from src.gateway.models import AuditEvent, HistoryRecord, QueryRequest
@@ -123,6 +124,17 @@ async def _add_history_best_effort(
         logger.exception("History write failed after successful query")
 
 
+def _apply_security_headers(response: Response) -> Response:
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'",
+    )
+    return response
+
+
 def create_app(
     *,
     access_matrix_repo: Optional[AccessMatrixRepository] = None,
@@ -136,25 +148,24 @@ def create_app(
     jwt_verifier: Optional[HS256JWTVerifier] = None,
     metrics_token: Optional[str] = None,
     trace_recorder: Optional[TraceRecorder] = None,
+    abuse_protector: Optional[AbuseProtector] = None,
 ) -> FastAPI:
     api = FastAPI(title="Codebase Intelligence System - Gateway", version="1.0.0")
     metrics_registry = GatewayMetrics()
+    abuse = abuse_protector or AbuseProtector.from_env()
 
     @api.middleware("http")
     async def security_headers(request, call_next):
         started_at = time.perf_counter()
         status_code = 500
         try:
+            rejection = abuse.reject_request_body(request.headers)
+            if rejection is not None:
+                status_code = rejection.status_code
+                return _apply_security_headers(rejection)
             response = await call_next(request)
             status_code = response.status_code
-            response.headers.setdefault("X-Content-Type-Options", "nosniff")
-            response.headers.setdefault("X-Frame-Options", "DENY")
-            response.headers.setdefault("Referrer-Policy", "no-referrer")
-            response.headers.setdefault(
-                "Content-Security-Policy",
-                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'",
-            )
-            return response
+            return _apply_security_headers(response)
         finally:
             metrics_registry.observe_http_request(
                 request.method,
@@ -269,6 +280,7 @@ def create_app(
         history: Optional[UserHistoryRepository] = Depends(get_history_repo),
         trace_recorder: TraceRecorder = Depends(get_trace_recorder),
     ):
+        abuse.ensure_query_allowed(request.query)
         start_time = time.time()
         user = iam.decode_token(authorization)
         await rate_limit.check_rate_limit(user.id)

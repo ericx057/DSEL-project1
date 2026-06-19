@@ -321,6 +321,65 @@ def test_policy_no_hits_ignores_generic_engine_class_overlap():
     assert decision.response == "No indexed context matched `How does the payout settlement engine work?`."
 
 
+def test_policy_no_hits_when_named_query_has_no_symbol_anchor():
+    packet = RetrievalPacket(
+        artifacts=[
+            {
+                "id": "repo-a:indexer",
+                "repository": "repo-a",
+                "file_path": "src/ingestion/indexer.py",
+                "language": "python",
+                "kind": "class-implementation",
+                "symbol_name": "RepositoryIndexer",
+                "text": "class RepositoryIndexer relative_path index_repository _iter_files",
+                "tier": 3,
+                "metadata": {"qualified_name": "RepositoryIndexer"},
+            }
+        ],
+        summaries=[
+            "[1] RepositoryIndexer (class-implementation, python, lines 1-40) - Mentions RepositoryIndexer, relative_path, index_repository, _iter_files."
+        ],
+        timings_ms={},
+        index_fingerprint="fp-1",
+        policy_version="response-policy-v3",
+    )
+    query = "Explain velvet taxonomy in the ZzyzxQuasarProtocol and its relation to parquet flooring."
+
+    decision = ResponsePolicy().apply("", _task(query), packet)
+
+    assert decision.response == f"No indexed context matched `{query}`."
+    assert "RepositoryIndexer" not in decision.response
+
+
+def test_policy_no_hits_ignores_repository_word_in_obscure_prompt():
+    packet = RetrievalPacket(
+        artifacts=[
+            {
+                "id": "repo-a:indexer",
+                "repository": "repo-a",
+                "file_path": "src/ingestion/indexer.py",
+                "language": "python",
+                "kind": "class",
+                "symbol_name": "RepositoryIndexer",
+                "text": "class RepositoryIndexer indexes repositories",
+                "tier": 1,
+                "metadata": {"qualified_name": "RepositoryIndexer"},
+            }
+        ],
+        summaries=[
+            "[1] RepositoryIndexer (class, python, lines 1-2) - Mentions RepositoryIndexer."
+        ],
+        timings_ms={},
+        index_fingerprint="fp-1",
+        policy_version="response-policy-v3",
+    )
+    query = "Does the repository mention a purple astrolabe negotiating Byzantine pottery?"
+
+    decision = ResponsePolicy().apply("", _task(query), packet)
+
+    assert decision.response == f"No indexed context matched `{query}`."
+
+
 def test_policy_fallback_filters_unrelated_retrieved_artifacts():
     packet = RetrievalPacket(
         artifacts=[

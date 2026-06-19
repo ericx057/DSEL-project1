@@ -5,8 +5,16 @@ This service is a retrieval-backed code intelligence gateway. The production pat
 1. `src.gateway.bootstrap:app` builds the FastAPI gateway from environment configuration.
 2. `/query` authenticates the caller, resolves repository scope, rate limits, audits, and delegates to `HarnessService`.
 3. `HarnessService` retrieves summarized context, checks versioned cache entries, calls the model adapter when useful, applies `ResponsePolicy`, records a trace, and returns only shaped text.
-4. `SQLiteUnifiedStore` stores indexed artifacts and graph edges. Redis stores response cache entries and request coalescing locks.
+4. `SQLiteUnifiedStore` stores indexed artifacts, repository metadata, and graph edges. Redis stores response cache entries, request coalescing locks, and shared rate-limit state for multi-machine deployments; single-machine deployments use `semantic_cache.db` for local atomic locks and process-local rate limits when Redis is absent.
 5. `SQLiteTraceRecorder`, `SQLiteAuditRepository`, and `SQLiteUserHistoryRepository` write traceability data under `CIS_DATA_DIR`.
+
+The Windows desktop Spotlight surface is a separate production entrypoint:
+
+```bash
+python -m src.desktop
+```
+
+It starts hidden by default and uses `Ctrl+Alt` to toggle the `DSEL Code Search` window. `demo.py` is retained only as a compatibility launcher.
 
 ## Live Components
 
@@ -15,7 +23,7 @@ This service is a retrieval-backed code intelligence gateway. The production pat
 | Gateway | Auth, RBAC scope, rate limits, audit, harness delegation, HTTP surface | yes |
 | Harness | Retrieval, cache decisions, model calls, response policy, trace recording | yes |
 | SQLite index | Ranked source artifacts and graph edges | yes, must contain artifacts |
-| Redis | Shared cache and coalescing across gateway replicas | yes for multi-replica production |
+| Redis | Shared cache, coalescing, and rate limiting across gateway replicas | yes for multi-replica or multi-machine production |
 | OpenRouter | Hosted model provider behind `ModelHook` | degraded mode can still return retrieval fallback |
 | Prometheus | Scrapes `/metrics` using `CIS_METRICS_TOKEN` | no |
 
@@ -26,6 +34,7 @@ GitHub Actions runs on `main` and `master` pushes and pull requests. The CI/CD r
 Required gates before deploy:
 
 - Full test suite passes.
+- Desktop Spotlight entrypoint and real-window smoke pass on `windows-latest`.
 - Harness eval has 100 percent policy/cache safety.
 - Harness eval multilingual concrete-answer rate is at least 95 percent.
 - Docker image builds from `requirements-prod.txt`.
@@ -59,11 +68,22 @@ Required:
 | `CIS_JWT_ISSUER` | Expected JWT issuer |
 | `CIS_JWT_AUDIENCE` | Expected JWT audience |
 | `CIS_METRICS_TOKEN` | Token for `/metrics` |
-| `CIS_REDIS_URL` | Redis URL for shared cache and coalescing |
+| `CIS_REDIS_URL` | Redis URL for shared cache, coalescing, and rate limiting; omit only for single-machine local fallback |
 | `CIS_INFERENCE_PROVIDER` | `openrouter` for hosted inference |
 | `CIS_OPENROUTER_API_KEY` | OpenRouter API key used by `ModelHook` |
-| `CIS_OPENROUTER_MODEL` | OpenRouter model slug, default `~openai/gpt-latest` |
+| `CIS_OPENROUTER_MODEL` | OpenRouter model slug, default `qwen/qwen3.6-27b` |
 | `CIS_OPENROUTER_BASE_URL` | OpenRouter API base URL, default `https://openrouter.ai/api/v1` |
+
+Abuse protection:
+
+| Variable | Purpose |
+| --- | --- |
+| `CIS_MAX_REQUEST_BYTES` | Maximum accepted HTTP request body size, default `65536` |
+| `CIS_QUERY_MAX_CHARS` | Maximum accepted `/query` prompt length, default `8000` |
+| `CIS_RATE_LIMIT_CAPACITY` | Per-user token bucket capacity, default `20` |
+| `CIS_RATE_LIMIT_REFILL_PER_MINUTE` | Per-user token refill rate, default `20` |
+| `CIS_RATE_LIMIT_BASE_BACKOFF_SECONDS` | Initial exponential backoff after throttling, default `2` |
+| `CIS_RATE_LIMIT_MAX_BACKOFF_SECONDS` | Maximum exponential backoff after repeated throttling, default `60` |
 
 Indexing:
 
@@ -71,6 +91,7 @@ Indexing:
 | --- | --- |
 | `CIS_REPOSITORY_PATH` | Repository path mounted into the indexer |
 | `CIS_REPOSITORY_NAME` | Scope name stored on artifacts |
+| `CIS_REPOSITORY_HOST_PATH` | Host repository path mounted by Docker Compose as `/repos/source` |
 | `CIS_EMBEDDING_BACKEND` | `nomic`, `sentence_transformers`, `minilm`, or `hashing` |
 | `CIS_EMBEDDING_MODEL` | Embedding model name |
 | `CIS_EMBEDDING_TRUST_REMOTE_CODE` | Whether transformer loading can use remote model code |
@@ -100,17 +121,20 @@ Bootstrap helpers:
 ## Startup Order
 
 1. Provision persistent volume for `CIS_DATA_DIR`.
-2. Start Redis.
-3. Configure `CIS_OPENROUTER_API_KEY` and `CIS_OPENROUTER_MODEL`.
-4. Run the indexer:
+2. Start Redis for multi-replica production, or rely on `semantic_cache.db` only for a single-machine deployment.
+3. Configure `CIS_OPENROUTER_API_KEY` and `CIS_OPENROUTER_MODEL=qwen/qwen3.6-27b`.
+4. Configure abuse controls for the expected client profile. Start with the documented defaults, then lower `CIS_RATE_LIMIT_CAPACITY` or `CIS_QUERY_MAX_CHARS` for untrusted clients.
+5. Run the indexer:
 
 ```bash
-docker compose --profile indexing run --rm indexer
+CIS_REPOSITORY_HOST_PATH=/path/to/repo \
+CIS_REPOSITORY_NAME=my-repo \
+    docker compose --profile indexing run --rm indexer
 ```
 
-5. Start the gateway.
-6. Wait for `/health` to pass.
-7. Wait for `/ready` to pass. If `/ready` reports zero artifacts, do not route traffic.
+6. Start the gateway.
+7. Wait for `/health` to pass.
+8. Wait for `/ready` to pass. If `/ready` reports zero artifacts, do not route traffic.
 
 ## Health And Readiness
 
@@ -145,7 +169,9 @@ For this deployment, RTL means reliability, traceability, and latency.
 Reliability:
 
 - `/ready` gates traffic on indexed data, cache, trace storage, and circuit breaker state.
-- Redis is required for shared cache/coalescing when more than one gateway replica is running.
+- Redis is required for shared cache/coalescing/rate limiting when more than one gateway replica or machine is running. Without Redis, `SQLiteSemanticCacheRepository` coordinates request locks only on the local machine through `semantic_cache.db`, and rate limits are process-local.
+- `/query` rejects oversized request bodies before JSON parsing and rejects oversized prompts before auth, rate-limit consumption, retrieval, or model calls.
+- Per-user token-bucket throttling returns HTTP 429 with `Retry-After`; repeated over-limit requests grow an exponential backoff window.
 - The previous image and data snapshot must remain available for rollback.
 
 Traceability:

@@ -74,7 +74,6 @@ class RepositoryIndexer:
         if not root.exists() or not root.is_dir():
             raise ValueError(f"Repository path does not exist: {root}")
 
-        self.store.delete_repository(repository)
         artifacts: List[ArtifactRecord] = []
         edges: List[GraphEdgeRecord] = []
         files_indexed = 0
@@ -104,8 +103,7 @@ class RepositoryIndexer:
             files_indexed += 1
 
         edges.extend(self._build_cross_file_edges(artifacts))
-        self.store.upsert_artifacts(artifacts)
-        self.store.upsert_edges(edges)
+        self.store.replace_repository(repository, artifacts, edges, source_path=str(root))
         return IndexReport(
             repository=repository,
             files_indexed=files_indexed,

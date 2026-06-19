@@ -16,8 +16,8 @@ Usage:
     python scripts/reindex_nomic.py --db .cis-nomic/index.db
     python scripts/reindex_nomic.py --batch 32             # smaller batch if OOM
 
-After completion, point the demo or eval at the new index:
-    DSEL_INDEX=.cis-nomic/index.db python demo.py
+After completion, point the desktop app or eval at the new index:
+    DSEL_INDEX=.cis-nomic/index.db python -m src.desktop
     python evaluation/run_eval.py --db .cis-nomic/index.db
 """
 
@@ -144,8 +144,8 @@ def main() -> int:
     print(f"  Index path   : {db}")
     print("=" * 60)
     print()
-    print("To run the demo with the nomic index:")
-    print(f"  DSEL_INDEX={db} python demo.py")
+    print("To run the desktop app with the nomic index:")
+    print(f"  DSEL_INDEX={db} python -m src.desktop")
     print()
     print("To run the benchmark with the nomic index:")
     print(f"  python evaluation/run_eval.py --db {db}")

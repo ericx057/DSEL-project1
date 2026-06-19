@@ -48,6 +48,7 @@ class ResponsePolicy:
         "do",
         "does",
         "engine",
+        "explain",
         "for",
         "from",
         "handle",
@@ -56,8 +57,15 @@ class ResponsePolicy:
         "in",
         "is",
         "it",
+        "its",
+        "mention",
+        "mentions",
         "of",
         "or",
+        "repository",
+        "repositories",
+        "relation",
+        "related",
         "the",
         "to",
         "what",
@@ -259,8 +267,7 @@ class ResponsePolicy:
                 for score, index, artifact in positive
                 if self._artifact_mentions_named_term(named_terms, artifact)
             ]
-            if anchored:
-                positive = anchored
+            positive = anchored
         if not positive:
             return []
         positive.sort(key=lambda item: (-item[0], item[1]))
@@ -294,6 +301,8 @@ class ResponsePolicy:
             if term in parts:
                 score += 8.0
                 has_anchor = True
+        if named_terms and not has_anchor:
+            return 0.0
         if not has_anchor and len(matched_terms) < 2:
             return 0.0
         return score

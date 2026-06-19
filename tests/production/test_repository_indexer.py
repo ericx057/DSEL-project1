@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from ingestion.indexer import RepositoryIndexer
-from retrieval.database import HashingEmbeddingProvider, SQLiteUnifiedStore
+from retrieval.database import ArtifactRecord, HashingEmbeddingProvider, SQLiteUnifiedStore
 from src.UMMDB.parser.cascade import ParsedChunk
 
 
@@ -138,6 +138,45 @@ def test_repository_indexer_uses_injected_ummdb_parser(tmp_path: Path):
 
     assert report.artifacts_indexed == 1
     assert any(item["symbol_name"] == "provided" for item in results)
+
+
+def test_repository_indexer_keeps_previous_index_when_reindex_fails(tmp_path: Path):
+    class ExplodingParser:
+        def parse(self, file_path, language=None):
+            raise RuntimeError("parser exploded")
+
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    (repo / "app.py").write_text("def new_symbol():\n    return True", encoding="utf-8")
+
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+    store.upsert_artifacts(
+        [
+            ArtifactRecord(
+                artifact_id="repo-a:old.py:old_symbol:T1",
+                repository="repo-a",
+                file_path="old.py",
+                language="python",
+                text="def old_symbol(): pass",
+                tier=1,
+                fidelity="L-1",
+                symbol_name="old_symbol",
+            )
+        ]
+    )
+    indexer = RepositoryIndexer(store, parser=ExplodingParser())
+
+    try:
+        indexer.index_repository("repo-a", repo)
+    except RuntimeError as exc:
+        assert str(exc) == "parser exploded"
+    else:
+        raise AssertionError("Expected parser failure")
+
+    old_results = store.vector_search("old_symbol", user_tier=1, repo_scope=["repo-a"], top_k=10)
+    stored_ids = [item["id"] for item in store.list_artifacts(user_tier=1, repo_scope=["repo-a"])]
+    assert [item["id"] for item in old_results] == ["repo-a:old.py:old_symbol:T1"]
+    assert stored_ids == ["repo-a:old.py:old_symbol:T1"]
 
 
 def test_repository_indexer_resolves_method_calls_without_short_name_collisions(tmp_path: Path):

@@ -32,7 +32,7 @@ def test_gateway_compose_uses_openrouter_without_llamacpp_dependency():
 
     assert "CIS_INFERENCE_PROVIDER: ${CIS_INFERENCE_PROVIDER:-openrouter}" in gateway_section
     assert "CIS_OPENROUTER_API_KEY: ${CIS_OPENROUTER_API_KEY:?set CIS_OPENROUTER_API_KEY}" in gateway_section
-    assert "CIS_OPENROUTER_MODEL: ${CIS_OPENROUTER_MODEL:-~openai/gpt-latest}" in gateway_section
+    assert "CIS_OPENROUTER_MODEL: ${CIS_OPENROUTER_MODEL:-qwen/qwen3.6-27b}" in gateway_section
     assert "CIS_LLAMA_CPP_BASE_URL" not in gateway_section
     assert "llamacpp:" not in gateway_section
 

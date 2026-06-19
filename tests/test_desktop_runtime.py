@@ -1,11 +1,13 @@
 import subprocess
 import threading
 
-from demo import (
+from src.desktop.spotlight import (
     CodexCliAnswerGenerator,
     ConversationSession,
     ConversationTurn,
-    DeterministicDemoAnswers,
+    DeterministicAnswers,
+    DeferredAnswerGenerator,
+    DeferredRetrievalEngine,
     GlobalHotkeyController,
     LLMPromptBuilder,
     LocalInferenceAnswerGenerator,
@@ -14,10 +16,19 @@ from demo import (
     RetrievalEngine,
     RetrievalResult,
     SourceSnippetResolver,
-    SpotlightDemo,
+    SpotlightApp,
     _pick_llm,
 )
 from retrieval.reranker import LexicalReranker
+
+
+def test_demo_module_forwards_to_production_desktop_entrypoint():
+    import demo
+    from src.desktop import spotlight
+
+    assert spotlight.SpotlightDemo is spotlight.SpotlightApp
+    assert demo.SpotlightDemo is spotlight.SpotlightApp
+    assert demo.main is spotlight.main
 
 
 def test_query_result_cache_normalizes_query_and_returns_copies():
@@ -63,12 +74,12 @@ def test_llm_prompt_builder_uses_retrieved_summaries_not_raw_code():
     assert "Interpretation:" not in prompt
 
 
-def test_deterministic_demo_answers_match_vetted_queries():
-    answers = DeterministicDemoAnswers()
+def test_deterministic_answers_match_vetted_queries():
+    answers = DeterministicAnswers()
 
-    dispatch = answers.answer_for(DeterministicDemoAnswers.DISPATCH_QUERY)
-    jacobian = answers.answer_for(DeterministicDemoAnswers.JACOBIAN_QUERY)
-    constraint = answers.answer_for(DeterministicDemoAnswers.CONSTRAINT_ERROR_QUERY)
+    dispatch = answers.answer_for(DeterministicAnswers.DISPATCH_QUERY)
+    jacobian = answers.answer_for(DeterministicAnswers.JACOBIAN_QUERY)
+    constraint = answers.answer_for(DeterministicAnswers.CONSTRAINT_ERROR_QUERY)
 
     assert dispatch is not None
     assert "return solve_BFGS" in dispatch
@@ -82,8 +93,8 @@ def test_deterministic_demo_answers_match_vetted_queries():
     assert "calcResidual" in constraint
 
 
-def test_deterministic_demo_answers_tolerate_minor_query_variation():
-    answers = DeterministicDemoAnswers()
+def test_deterministic_answers_tolerate_minor_query_variation():
+    answers = DeterministicAnswers()
 
     dispatch = answers.answer_for(
         "How does System::solve dispatch to solve_BFGS, solve_LM, and solve_DL?"
@@ -95,9 +106,9 @@ def test_deterministic_demo_answers_tolerate_minor_query_variation():
         "When ConstraintCoincident changes, how does SubSystem::error reach the GCS solver?"
     )
 
-    assert dispatch == DeterministicDemoAnswers.DISPATCH_ANSWER
-    assert jacobian == DeterministicDemoAnswers.JACOBIAN_ANSWER
-    assert constraint == DeterministicDemoAnswers.CONSTRAINT_ERROR_ANSWER
+    assert dispatch == DeterministicAnswers.DISPATCH_ANSWER
+    assert jacobian == DeterministicAnswers.JACOBIAN_ANSWER
+    assert constraint == DeterministicAnswers.CONSTRAINT_ERROR_ANSWER
 
 
 def test_source_snippet_resolver_enriches_exact_cpp_overload(tmp_path):
@@ -301,8 +312,8 @@ def test_codex_cli_answer_generator_routes_prompt_to_local_agent_command(tmp_pat
     assert "src/App/Document.cpp" not in calls[0]["prompt"]
 
 
-def test_spotlight_demo_synthesizes_summary_without_file_path_dump():
-    demo = SpotlightDemo.__new__(SpotlightDemo)
+def test_spotlight_app_synthesizes_summary_without_file_path_dump():
+    demo = SpotlightApp.__new__(SpotlightApp)
     hits = [
         {
             "file_path": "src/App/Document.cpp",
@@ -342,7 +353,7 @@ def test_codex_cli_runner_writes_prompt_to_stdin_as_utf8_bytes(monkeypatch, tmp_
         calls.append({"args": args, **kwargs})
         return Completed()
 
-    monkeypatch.setattr("demo.subprocess.run", fake_run)
+    monkeypatch.setattr("src.desktop.spotlight.subprocess.run", fake_run)
 
     prompt = "context has unicode: \u2013 and \u00b7"
 
@@ -373,8 +384,8 @@ def test_pick_llm_uses_codex_fallback_when_local_inference_is_unavailable(monkey
     class FakeCodex:
         ready = True
 
-    monkeypatch.setattr("demo.LocalInferenceAnswerGenerator", FakeLocal)
-    monkeypatch.setattr("demo.CodexCliAnswerGenerator", FakeCodex)
+    monkeypatch.setattr("src.desktop.spotlight.LocalInferenceAnswerGenerator", FakeLocal)
+    monkeypatch.setattr("src.desktop.spotlight.CodexCliAnswerGenerator", FakeCodex)
 
     generator = _pick_llm()
 
@@ -464,6 +475,93 @@ def test_retrieval_engine_warmup_loads_path_and_lexical_caches():
     engine._warmup()
 
     assert engine._store.calls == ["path", "lexical"]
+
+
+def test_deferred_retrieval_engine_does_not_block_before_engine_ready():
+    started = threading.Event()
+    release = threading.Event()
+
+    class ReadyEngine:
+        ready = True
+
+        def __init__(self):
+            self.warmup_started = False
+
+        def start_warmup(self):
+            self.warmup_started = True
+
+        def search(self, query, top_k=8):
+            return RetrievalResult([{"id": query, "top_k": top_k}], elapsed_ms=1.0, cached=False)
+
+    created = []
+
+    def factory():
+        started.set()
+        release.wait(timeout=2)
+        engine = ReadyEngine()
+        created.append(engine)
+        return engine
+
+    engine = DeferredRetrievalEngine(factory)
+
+    assert started.wait(timeout=1)
+    assert not engine.ready
+    assert engine.search("before-ready").hits == []
+
+    engine.start_warmup()
+    release.set()
+
+    assert engine.wait_until_ready(timeout=1)
+    assert engine.ready
+    assert created[0].warmup_started
+    assert engine.search("after-ready", top_k=3).hits == [{"id": "after-ready", "top_k": 3}]
+
+
+def test_deferred_answer_generator_does_not_block_before_backend_ready():
+    started = threading.Event()
+    release = threading.Event()
+
+    class ReadyAnswerGenerator:
+        ready = True
+
+        def stream(self, query, hits, on_token, on_done, history=()):
+            on_token(f"answer:{query}:{len(hits)}:{len(history)}")
+            on_done(None)
+
+    def factory():
+        started.set()
+        release.wait(timeout=2)
+        return ReadyAnswerGenerator()
+
+    generator = DeferredAnswerGenerator(factory)
+
+    assert started.wait(timeout=1)
+    assert not generator.ready
+
+    tokens = []
+    done = []
+    generator.stream("before-ready", [], tokens.append, done.append)
+    assert tokens == []
+    assert done == ["Local inference backend is still starting."]
+
+    release.set()
+    for _ in range(20):
+        if generator.ready:
+            break
+        threading.Event().wait(0.05)
+
+    assert generator.ready
+    tokens = []
+    done = []
+    generator.stream(
+        "after-ready",
+        [{"id": "hit"}],
+        tokens.append,
+        done.append,
+        history=(ConversationTurn("q", "a"),),
+    )
+    assert tokens == ["answer:after-ready:1:1"]
+    assert done == [None]
 
 
 def test_retrieval_engine_uses_store_searches_without_domain_aliases():
@@ -616,7 +714,7 @@ def test_global_hotkey_controller_recovers_when_release_is_missed(monkeypatch):
                 callback()
 
     now = [100.0]
-    monkeypatch.setattr("demo.time.monotonic", lambda: now[0])
+    monkeypatch.setattr("src.desktop.spotlight.time.monotonic", lambda: now[0])
 
     calls = []
     controller = GlobalHotkeyController(Root(), lambda: calls.append("shown"))
@@ -637,7 +735,7 @@ def test_global_hotkey_controller_poll_transition_fires_once(monkeypatch):
                 callback()
 
     now = [100.0]
-    monkeypatch.setattr("demo.time.monotonic", lambda: now[0])
+    monkeypatch.setattr("src.desktop.spotlight.time.monotonic", lambda: now[0])
 
     calls = []
     controller = GlobalHotkeyController(Root(), lambda: calls.append("shown"))
@@ -668,7 +766,7 @@ def test_global_hotkey_controller_poll_recovers_when_release_transition_is_misse
                 callback()
 
     now = [100.0]
-    monkeypatch.setattr("demo.time.monotonic", lambda: now[0])
+    monkeypatch.setattr("src.desktop.spotlight.time.monotonic", lambda: now[0])
 
     calls = []
     controller = GlobalHotkeyController(Root(), lambda: calls.append("shown"))
@@ -701,7 +799,7 @@ def test_global_hotkey_controller_queues_background_callbacks_for_tk_thread(monk
     assert calls == ["shown"]
 
 
-def test_spotlight_demo_toggle_hides_visible_window_and_shows_hidden_window():
+def test_spotlight_app_toggle_hides_visible_window_and_shows_hidden_window():
     class Root:
         def __init__(self):
             self.visible = True
@@ -709,7 +807,7 @@ def test_spotlight_demo_toggle_hides_visible_window_and_shows_hidden_window():
         def winfo_viewable(self):
             return self.visible
 
-    demo = SpotlightDemo.__new__(SpotlightDemo)
+    demo = SpotlightApp.__new__(SpotlightApp)
     demo.root = Root()
     calls = []
     demo.hide = lambda: (calls.append("hide"), setattr(demo.root, "visible", False))
@@ -721,7 +819,7 @@ def test_spotlight_demo_toggle_hides_visible_window_and_shows_hidden_window():
     assert calls == ["hide", "show"]
 
 
-def test_spotlight_demo_hide_preserves_expanded_state_and_process():
+def test_spotlight_app_hide_preserves_expanded_state_and_process():
     class Root:
         def __init__(self):
             self.withdrawn = False
@@ -740,7 +838,7 @@ def test_spotlight_demo_hide_preserves_expanded_state_and_process():
         def pack_forget(self):
             self.forget_called = True
 
-    demo = SpotlightDemo.__new__(SpotlightDemo)
+    demo = SpotlightApp.__new__(SpotlightApp)
     demo.root = Root()
     demo._expanded = True
     demo._results_frame = Packed()
@@ -755,7 +853,7 @@ def test_spotlight_demo_hide_preserves_expanded_state_and_process():
     assert not demo._divider.forget_called
 
 
-def test_spotlight_demo_collapse_hides_instead_of_quitting_when_collapsed():
+def test_spotlight_app_collapse_hides_instead_of_quitting_when_collapsed():
     class Root:
         def __init__(self):
             self.quit_called = False
@@ -764,7 +862,7 @@ def test_spotlight_demo_collapse_hides_instead_of_quitting_when_collapsed():
             self.quit_called = True
 
     calls = []
-    demo = SpotlightDemo.__new__(SpotlightDemo)
+    demo = SpotlightApp.__new__(SpotlightApp)
     demo.root = Root()
     demo._expanded = False
     demo._enable_hotkey = False
@@ -776,11 +874,11 @@ def test_spotlight_demo_collapse_hides_instead_of_quitting_when_collapsed():
     assert not demo.root.quit_called
 
 
-def test_spotlight_demo_on_hits_shows_generation_placeholder_before_answer():
+def test_spotlight_app_on_hits_shows_generation_placeholder_before_answer():
     class ReadyLLM:
         ready = True
 
-    demo = SpotlightDemo.__new__(SpotlightDemo)
+    demo = SpotlightApp.__new__(SpotlightApp)
     demo._llm = ReadyLLM()
     demo._conversation = ConversationSession()
     demo._entry = type("Entry", (), {"configure": lambda self, **kwargs: None})()

@@ -67,6 +67,9 @@ class RateLimitRepository(ABC):
     async def check_and_consume(self, user_id: str) -> bool:
         pass
 
+    def retry_after(self, user_id: str) -> Optional[int]:
+        return None
+
 class AuditRepository(ABC):
     """Contract for append-only audit logging."""
     @abstractmethod

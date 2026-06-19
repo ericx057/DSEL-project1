@@ -16,7 +16,7 @@ from src.inference.runtime import decode_stream_line
 logger = logging.getLogger(__name__)
 
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_OPENROUTER_MODEL = "~openai/gpt-latest"
+DEFAULT_OPENROUTER_MODEL = "qwen/qwen3.6-27b"
 OPENROUTER_UNAVAILABLE_MESSAGE = "OpenRouter inference provider unavailable"
 
 

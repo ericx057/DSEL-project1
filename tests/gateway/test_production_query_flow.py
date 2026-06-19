@@ -191,6 +191,46 @@ async def test_successful_query_response_survives_audit_write_failure(tmp_path: 
     assert response.text == "answer"
 
 
+@pytest.mark.asyncio
+async def test_query_rejects_oversized_body(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("CIS_MAX_REQUEST_BYTES", "64")
+    audit = SQLiteAuditRepository(tmp_path / "audit.db")
+    app = _production_query_app(tmp_path, audit_repo=audit)
+    body = json.dumps({"query": "x" * 200})
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/query",
+            content=body,
+            headers={
+                "Authorization": f"Bearer {_production_token()}",
+                "Content-Type": "application/json",
+            },
+        )
+
+    assert response.status_code == 413
+    assert response.json()["detail"] == "Request body too large"
+    assert audit.list_events() == []
+
+
+@pytest.mark.asyncio
+async def test_query_rejects_oversized_prompt(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("CIS_QUERY_MAX_CHARS", "12")
+    audit = SQLiteAuditRepository(tmp_path / "audit.db")
+    app = _production_query_app(tmp_path, audit_repo=audit)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/query",
+            json={"query": "x" * 13},
+            headers={"Authorization": f"Bearer {_production_token()}"},
+        )
+
+    assert response.status_code == 413
+    assert response.json()["detail"] == "Query too large"
+    assert audit.list_events() == []
+
+
 def test_query_request_rejects_model_override():
     try:
         QueryRequest(query="public api", override_model="attacker-controlled-name")

@@ -14,7 +14,7 @@ class User(BaseModel):
 class QueryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    query: str
+    query: str = Field(min_length=1)
     diagram_requested: bool = False
     response_mode: str = Field(default="summary", pattern="^(summary|paragraph|deep)$")
 

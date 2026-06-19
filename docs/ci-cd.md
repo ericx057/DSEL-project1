@@ -14,6 +14,7 @@ Triggers:
 Jobs:
 
 - `test`: installs Python 3.13 dependencies from `requirements.txt`, runs pytest with workspace-local cache paths, runs the harness evaluation gate, and uploads `cache/harness-eval-ci/` as `harness-eval-report`.
+- `desktop`: runs on `windows-latest`, installs the same Python dependencies, runs the desktop runtime tests, verifies the canonical `python -m src.desktop --help` entrypoint, and launches `python -m src.desktop --show --no-hotkey` long enough to find the real `DSEL Code Search` window.
 - `docker`: waits for `test`, builds the production image with `Dockerfile`, smoke-tests the built image locally, and pushes to GHCR only on branch pushes after smoke passes.
 
 Published image tags:
@@ -44,6 +45,7 @@ Indexing environments must also provide:
 
 - `CIS_REPOSITORY_PATH`
 - `CIS_REPOSITORY_NAME`
+- `CIS_REPOSITORY_HOST_PATH` when using Docker Compose indexing for a host-mounted repository
 - `CIS_EMBEDDING_BACKEND`
 - `CIS_EMBEDDING_MODEL`
 - `CIS_EMBEDDING_TRUST_REMOTE_CODE`
@@ -52,7 +54,7 @@ Indexing environments must also provide:
 
 1. Confirm the target commit has a passing `test` job and a successful `docker` job.
 2. Confirm the `docker` job summary reports the immutable digest for `ghcr.io/<owner>/<repo>:<git-sha>`.
-3. Deploy that exact digest to staging with production-like Redis, SQLite volume, metrics token, JWT settings, and OpenRouter credentials.
+3. Deploy that exact digest to staging with production-like SQLite volume, metrics token, JWT settings, OpenRouter credentials, and Redis when running more than one gateway replica.
 4. Run the smoke checks below.
 5. Promote the same digest to production after approval.
 6. Keep the previous production digest and `CIS_DATA_DIR` snapshot available until the new release is stable.
@@ -81,6 +83,14 @@ Acceptance criteria:
 - A repeated `/query` succeeds and applies the same response policy to cached content.
 
 CI also runs `python scripts/ci_container_smoke.py --image <tag>` against the locally built production image before any push. The smoke harness seeds a one-artifact SQLite index, starts the container with hashing embeddings and no OpenRouter key, then verifies `/health`, `/ready`, `/metrics`, and authenticated `/query`.
+
+The desktop Spotlight app is not launched through the web frontend. Its production command is:
+
+```bash
+python -m src.desktop
+```
+
+On Windows, the application starts hidden by default and `Ctrl+Alt` toggles the `DSEL Code Search` window. CI uses `scripts/ci_desktop_smoke.ps1` with `python -m src.desktop --show --no-hotkey` to verify the real desktop window without relying on the web frontend.
 
 ## Rollout Metrics
 
@@ -112,4 +122,4 @@ Do not run irreversible data migrations without a tested restore path and a roll
 - Container smoke failure: run `python scripts/ci_container_smoke.py --image <local-tag>` and inspect Docker logs for the generated `cis-smoke-*` container.
 - `/ready` returns 503: check indexed artifact count, Redis ping, trace recorder ping, and circuit-breaker state in the readiness response.
 - OpenRouter outage or bad credentials: `/query` should degrade to retrieval fallback and must not return provider error text; `/ready` may fail while the circuit breaker is open.
-- Redis outage: cache/coalescing is bypassed for direct queries; multi-replica production should still treat this as degraded and hold or roll back rollout.
+- Redis outage: single-machine deployments fall back to `semantic_cache.db` for process-safe local cache locks; multi-machine or multi-replica production should still treat Redis loss as degraded and hold or roll back rollout.

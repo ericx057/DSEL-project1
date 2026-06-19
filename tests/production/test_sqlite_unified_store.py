@@ -53,6 +53,32 @@ def test_sqlite_store_filters_tier_and_scope_in_query(tmp_path: Path):
     assert all(item["repository"] == "repo-a" for item in results)
 
 
+def test_sqlite_store_matches_existing_hash_embedding_dimension(tmp_path: Path):
+    db_path = tmp_path / "cis.db"
+    writer = SQLiteUnifiedStore(db_path, HashingEmbeddingProvider(dimensions=16))
+    writer.upsert_artifacts(
+        [
+            ArtifactRecord(
+                artifact_id="repo-a:indexer",
+                repository="repo-a",
+                file_path="indexer.py",
+                language="python",
+                text="RepositoryIndexer indexes repositories and upserts artifacts",
+                tier=3,
+                fidelity="L-1",
+                symbol_name="RepositoryIndexer",
+            )
+        ]
+    )
+    writer.close()
+
+    reader = SQLiteUnifiedStore(db_path, HashingEmbeddingProvider(dimensions=128))
+
+    results = reader.vector_search("RepositoryIndexer indexes repositories", user_tier=3, repo_scope=["repo-a"])
+
+    assert [item["id"] for item in results] == ["repo-a:indexer"]
+
+
 def test_sqlite_store_graph_search_walks_allowed_edges_only(tmp_path: Path):
     store = SQLiteUnifiedStore(tmp_path / "cis.db", HashingEmbeddingProvider(dimensions=16))
     store.upsert_artifacts(
@@ -131,6 +157,64 @@ def test_sqlite_store_delete_repository_chunks_large_edge_deletes(tmp_path: Path
 
     assert store.vector_search("item", user_tier=3, repo_scope=["repo-a"], top_k=10) == []
     assert store.list_edges(user_tier=3, repo_scope=["repo-a"]) == []
+
+
+def test_sqlite_store_replaces_repository_atomically_and_records_metadata(tmp_path: Path):
+    store = SQLiteUnifiedStore(tmp_path / "cis.db", HashingEmbeddingProvider(dimensions=8))
+    store.upsert_artifacts(
+        [
+            ArtifactRecord(
+                artifact_id="repo-a:old",
+                repository="repo-a",
+                file_path="old.py",
+                language="python",
+                text="def old_symbol(): pass",
+                tier=1,
+                fidelity="L-1",
+                symbol_name="old_symbol",
+            ),
+            ArtifactRecord(
+                artifact_id="repo-b:kept",
+                repository="repo-b",
+                file_path="kept.py",
+                language="python",
+                text="def kept_symbol(): pass",
+                tier=1,
+                fidelity="L-1",
+                symbol_name="kept_symbol",
+            ),
+        ]
+    )
+
+    store.replace_repository(
+        "repo-a",
+        [
+            ArtifactRecord(
+                artifact_id="repo-a:new",
+                repository="repo-a",
+                file_path="new.py",
+                language="python",
+                text="def new_symbol(): pass",
+                tier=1,
+                fidelity="L-1",
+                symbol_name="new_symbol",
+            )
+        ],
+        [],
+        source_path=str(tmp_path / "repo-a"),
+    )
+
+    repo_a_ids = [item["id"] for item in store.list_artifacts(user_tier=3, repo_scope=["repo-a"])]
+    repo_b_ids = [item["id"] for item in store.list_artifacts(user_tier=3, repo_scope=["repo-b"])]
+    assert repo_a_ids == ["repo-a:new"]
+    assert "repo-a:old" not in repo_a_ids
+    assert [item["id"] for item in store.vector_search("new_symbol", user_tier=3, repo_scope=["repo-a"], top_k=10)] == [
+        "repo-a:new"
+    ]
+    assert repo_b_ids == ["repo-b:kept"]
+    stats = store.index_stats(["repo-a"])
+    assert stats["repositories"] == ["repo-a"]
+    assert stats["repository_metadata"][0]["source_path"] == str(tmp_path / "repo-a")
 
 
 def test_lexical_search_merges_symbol_cache_and_exact_text_matches(tmp_path: Path):

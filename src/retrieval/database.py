@@ -299,6 +299,9 @@ class SQLiteUnifiedStore(UnifiedStore):
         self._lock = threading.RLock()
         self._connection = sqlite3.connect(self.db_path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
+        self._connection.execute("PRAGMA busy_timeout = 5000")
+        self._connection.execute("PRAGMA foreign_keys = ON")
+        self._connection.execute("PRAGMA journal_mode = WAL")
         self._init_schema()
         self._emb_cache: Optional[Dict[str, Any]] = None
         self._path_cache: Optional[List[Dict[str, str]]] = None
@@ -316,6 +319,17 @@ class SQLiteUnifiedStore(UnifiedStore):
 
     def _init_schema(self) -> None:
         with self._connection:
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS repositories (
+                    name TEXT PRIMARY KEY,
+                    source_path TEXT,
+                    artifact_count INTEGER NOT NULL DEFAULT 0,
+                    edge_count INTEGER NOT NULL DEFAULT 0,
+                    indexed_at REAL NOT NULL
+                )
+                """
+            )
             self._connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS artifacts (
@@ -359,84 +373,139 @@ class SQLiteUnifiedStore(UnifiedStore):
             self._connection.execute("CREATE INDEX IF NOT EXISTS idx_artifacts_file_path ON artifacts(file_path)")
 
     _EMBED_BATCH = 64
+    _UPSERT_ARTIFACT_SQL = """
+        INSERT INTO artifacts (
+            id, repository, file_path, language, text, tier, fidelity,
+            symbol_name, line_start, line_end, kind, embedding, metadata, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            repository=excluded.repository,
+            file_path=excluded.file_path,
+            language=excluded.language,
+            text=excluded.text,
+            tier=excluded.tier,
+            fidelity=excluded.fidelity,
+            symbol_name=excluded.symbol_name,
+            line_start=excluded.line_start,
+            line_end=excluded.line_end,
+            kind=excluded.kind,
+            embedding=excluded.embedding,
+            metadata=excluded.metadata,
+            updated_at=excluded.updated_at
+    """
 
     def upsert_artifacts(self, artifacts: Sequence[ArtifactRecord]) -> None:
         if not artifacts:
             return
-        now = time.time()
-        sql = """
-            INSERT INTO artifacts (
-                id, repository, file_path, language, text, tier, fidelity,
-                symbol_name, line_start, line_end, kind, embedding, metadata, updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                repository=excluded.repository,
-                file_path=excluded.file_path,
-                language=excluded.language,
-                text=excluded.text,
-                tier=excluded.tier,
-                fidelity=excluded.fidelity,
-                symbol_name=excluded.symbol_name,
-                line_start=excluded.line_start,
-                line_end=excluded.line_end,
-                kind=excluded.kind,
-                embedding=excluded.embedding,
-                metadata=excluded.metadata,
-                updated_at=excluded.updated_at
-        """
+        rows = self._artifact_rows(artifacts, time.time())
         with self._lock, self._connection:
-            for index in range(0, len(artifacts), self._EMBED_BATCH):
-                batch = artifacts[index : index + self._EMBED_BATCH]
-                embeddings = self.embedding_provider.embed_many([artifact.text for artifact in batch])
-                self._connection.executemany(
-                    sql,
-                    [
-                        (
-                            artifact.artifact_id,
-                            artifact.repository,
-                            artifact.file_path,
-                            artifact.language,
-                            artifact.text,
-                            artifact.tier,
-                            artifact.fidelity,
-                            artifact.symbol_name,
-                            artifact.line_start,
-                            artifact.line_end,
-                            artifact.kind,
-                            json.dumps(embedding),
-                            json.dumps(artifact.metadata, sort_keys=True),
-                            now,
-                        )
-                        for artifact, embedding in zip(batch, embeddings)
-                    ],
-                )
-            self._emb_cache = None
-            self._path_cache = None
-            self._lexical_cache = None
+            self._upsert_artifact_rows_unlocked(rows)
+            self._invalidate_caches_unlocked()
 
     def upsert_edges(self, edges: Sequence[GraphEdgeRecord]) -> None:
         with self._lock, self._connection:
-            self._connection.executemany(
-                """
-                INSERT OR IGNORE INTO edges(source_id, target_id, relationship)
-                VALUES (?, ?, ?)
-                """,
-                [(edge.source_id, edge.target_id, edge.relationship) for edge in edges],
-            )
+            self._upsert_edges_unlocked(edges)
 
     def delete_repository(self, repository: str) -> None:
         with self._lock, self._connection:
-            ids = [row["id"] for row in self._connection.execute("SELECT id FROM artifacts WHERE repository = ?", (repository,))]
-            if ids:
-                for chunk in self._chunks(ids, self._sqlite_variable_limit()):
-                    placeholders = ",".join("?" for _ in chunk)
-                    self._connection.execute(f"DELETE FROM edges WHERE source_id IN ({placeholders})", chunk)
-                    self._connection.execute(f"DELETE FROM edges WHERE target_id IN ({placeholders})", chunk)
-            self._connection.execute("DELETE FROM artifacts WHERE repository = ?", (repository,))
-            self._emb_cache = None
-            self._path_cache = None
-            self._lexical_cache = None
+            self._delete_repository_unlocked(repository)
+            self._connection.execute("DELETE FROM repositories WHERE name = ?", (repository,))
+            self._invalidate_caches_unlocked()
+
+    def replace_repository(
+        self,
+        repository: str,
+        artifacts: Sequence[ArtifactRecord],
+        edges: Sequence[GraphEdgeRecord],
+        source_path: Optional[str] = None,
+    ) -> None:
+        for artifact in artifacts:
+            if artifact.repository != repository:
+                raise ValueError(f"Artifact {artifact.artifact_id} belongs to {artifact.repository}, not {repository}")
+        artifact_ids = {artifact.artifact_id for artifact in artifacts}
+        for edge in edges:
+            if edge.source_id not in artifact_ids or edge.target_id not in artifact_ids:
+                raise ValueError(f"Edge {edge.source_id}->{edge.target_id} references artifacts outside {repository}")
+
+        now = time.time()
+        artifact_rows = self._artifact_rows(artifacts, now)
+        with self._lock:
+            self._connection.execute("BEGIN IMMEDIATE")
+            try:
+                self._delete_repository_unlocked(repository)
+                self._upsert_artifact_rows_unlocked(artifact_rows)
+                self._upsert_edges_unlocked(edges)
+                self._connection.execute(
+                    """
+                    INSERT INTO repositories(name, source_path, artifact_count, edge_count, indexed_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(name) DO UPDATE SET
+                        source_path=excluded.source_path,
+                        artifact_count=excluded.artifact_count,
+                        edge_count=excluded.edge_count,
+                        indexed_at=excluded.indexed_at
+                    """,
+                    (repository, source_path, len(artifacts), len(edges), now),
+                )
+                self._connection.commit()
+            except Exception:
+                self._connection.rollback()
+                raise
+            finally:
+                self._invalidate_caches_unlocked()
+
+    def _delete_repository_unlocked(self, repository: str) -> None:
+        ids = [row["id"] for row in self._connection.execute("SELECT id FROM artifacts WHERE repository = ?", (repository,))]
+        if ids:
+            for chunk in self._chunks(ids, self._sqlite_variable_limit()):
+                placeholders = ",".join("?" for _ in chunk)
+                self._connection.execute(f"DELETE FROM edges WHERE source_id IN ({placeholders})", chunk)
+                self._connection.execute(f"DELETE FROM edges WHERE target_id IN ({placeholders})", chunk)
+        self._connection.execute("DELETE FROM artifacts WHERE repository = ?", (repository,))
+
+    def _artifact_rows(self, artifacts: Sequence[ArtifactRecord], updated_at: float) -> List[tuple[Any, ...]]:
+        rows: List[tuple[Any, ...]] = []
+        for index in range(0, len(artifacts), self._EMBED_BATCH):
+            batch = artifacts[index : index + self._EMBED_BATCH]
+            embeddings = self.embedding_provider.embed_many([artifact.text for artifact in batch])
+            rows.extend(
+                (
+                    artifact.artifact_id,
+                    artifact.repository,
+                    artifact.file_path,
+                    artifact.language,
+                    artifact.text,
+                    artifact.tier,
+                    artifact.fidelity,
+                    artifact.symbol_name,
+                    artifact.line_start,
+                    artifact.line_end,
+                    artifact.kind,
+                    json.dumps(embedding),
+                    json.dumps(artifact.metadata, sort_keys=True),
+                    updated_at,
+                )
+                for artifact, embedding in zip(batch, embeddings)
+            )
+        return rows
+
+    def _upsert_artifact_rows_unlocked(self, rows: Sequence[tuple[Any, ...]]) -> None:
+        self._connection.executemany(self._UPSERT_ARTIFACT_SQL, rows)
+
+    def _upsert_edges_unlocked(self, edges: Sequence[GraphEdgeRecord]) -> None:
+        self._connection.executemany(
+            """
+            INSERT OR IGNORE INTO edges(source_id, target_id, relationship)
+            VALUES (?, ?, ?)
+            """,
+            [(edge.source_id, edge.target_id, edge.relationship) for edge in edges],
+        )
+
+    def _invalidate_caches_unlocked(self) -> None:
+        self._emb_cache = None
+        self._path_cache = None
+        self._lexical_cache = None
 
     def _sqlite_variable_limit(self) -> int:
         if hasattr(self._connection, "getlimit"):
@@ -455,11 +524,35 @@ class SQLiteUnifiedStore(UnifiedStore):
         ids = [row["id"] for row in rows]
         tiers = [row["tier"] for row in rows]
         repos = [row["repository"] for row in rows]
+        embeddings = [json.loads(row["embedding"]) for row in rows]
+        dimensions = self._embedding_dimensions(embeddings)
         if _NUMPY:
-            matrix = np.array([json.loads(row["embedding"]) for row in rows], dtype=np.float32)
+            matrix = np.array(embeddings, dtype=np.float32)
         else:
-            matrix = [json.loads(row["embedding"]) for row in rows]
-        self._emb_cache = {"ids": ids, "tiers": tiers, "repos": repos, "matrix": matrix}
+            matrix = embeddings
+        self._emb_cache = {"ids": ids, "tiers": tiers, "repos": repos, "matrix": matrix, "dimensions": dimensions}
+
+    @staticmethod
+    def _embedding_dimensions(embeddings: Sequence[Sequence[float]]) -> Optional[int]:
+        if not embeddings:
+            return None
+        dimensions = len(embeddings[0])
+        for embedding in embeddings:
+            if len(embedding) != dimensions:
+                raise ValueError("Index contains inconsistent embedding dimensions")
+        return dimensions
+
+    def _embed_query_for_index(self, query: str, dimensions: Optional[int]) -> List[float]:
+        query_embedding = self.embedding_provider.embed(query)
+        if dimensions is None or len(query_embedding) == dimensions:
+            return query_embedding
+        if isinstance(self.embedding_provider, HashingEmbeddingProvider):
+            self.embedding_provider = HashingEmbeddingProvider(dimensions=dimensions)
+            return self.embedding_provider.embed(query)
+        raise ValueError(
+            "Query embedding dimension does not match index embedding dimension: "
+            f"query={len(query_embedding)} index={dimensions}"
+        )
 
     def invalidate_emb_cache(self) -> None:
         self._emb_cache = None
@@ -495,11 +588,46 @@ class SQLiteUnifiedStore(UnifiedStore):
         repositories = []
         if row and row["repositories"]:
             repositories = sorted(repository for repository in row["repositories"].split(",") if repository)
+        metadata = self._repository_metadata(repo_scope)
         return {
             "artifact_count": int(row["artifact_count"] if row else 0),
             "max_updated_at": float(row["max_updated_at"] if row else 0),
             "repositories": repositories,
+            "repository_metadata": metadata,
         }
+
+    def _repository_metadata(self, repo_scope: Optional[Sequence[str]] = None) -> List[Dict[str, Any]]:
+        if repo_scope is None:
+            rows = self._connection.execute(
+                """
+                SELECT name, source_path, artifact_count, edge_count, indexed_at
+                FROM repositories
+                ORDER BY name
+                """
+            ).fetchall()
+        elif not repo_scope:
+            rows = []
+        else:
+            placeholders = ",".join("?" for _ in repo_scope)
+            rows = self._connection.execute(
+                f"""
+                SELECT name, source_path, artifact_count, edge_count, indexed_at
+                FROM repositories
+                WHERE name IN ({placeholders})
+                ORDER BY name
+                """,
+                list(repo_scope),
+            ).fetchall()
+        return [
+            {
+                "name": row["name"],
+                "source_path": row["source_path"],
+                "artifact_count": int(row["artifact_count"]),
+                "edge_count": int(row["edge_count"]),
+                "indexed_at": float(row["indexed_at"]),
+            }
+            for row in rows
+        ]
 
     def _ensure_path_cache(self) -> None:
         if self._path_cache is not None:
@@ -544,7 +672,7 @@ class SQLiteUnifiedStore(UnifiedStore):
         cache = self._emb_cache
         assert cache is not None
 
-        query_embedding = self.embedding_provider.embed(query)
+        query_embedding = self._embed_query_for_index(query, cache.get("dimensions"))
         ids = cache["ids"]
         tiers = cache["tiers"]
         repos = cache["repos"]

@@ -97,7 +97,7 @@ class SmokeHarness:
             "-e",
             "CIS_OPENROUTER_API_KEY=",
             "-e",
-            "CIS_OPENROUTER_MODEL=~openai/gpt-latest",
+            "CIS_OPENROUTER_MODEL=qwen/qwen3.6-27b",
             "-e",
             "CIS_OPENROUTER_BASE_URL=https://openrouter.ai/api/v1",
             "-e",

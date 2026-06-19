@@ -16,9 +16,33 @@ from src.gateway.repositories import (
     SQLiteUserHistoryRepository,
 )
 from src.gateway.security import HS256JWTVerifier
-from src.gateway.services import InMemorySemanticCacheRepository, TokenBucketRateLimitRepository
-from src.gateway.services import RedisSemanticCacheRepository
+from src.gateway.services import (
+    RedisSemanticCacheRepository,
+    RedisTokenBucketRateLimitRepository,
+    SQLiteSemanticCacheRepository,
+    TokenBucketRateLimitRepository,
+)
 from src.harness.trace import SQLiteTraceRecorder
+
+
+def _int_env(name: str, default: int, *, min_value: int = 1) -> int:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    value = int(raw)
+    if value < min_value:
+        raise ValueError(f"{name} must be at least {min_value}")
+    return value
+
+
+def _float_env(name: str, default: float, *, min_value: float = 0.0) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    value = float(raw)
+    if value < min_value:
+        raise ValueError(f"{name} must be at least {min_value}")
+    return value
 
 
 def build_app():
@@ -54,13 +78,28 @@ def build_app():
         scope.grant_group_scope(bootstrap_group, repository_name)
 
     redis_url = os.environ.get("CIS_REDIS_URL")
-    cache_repo = RedisSemanticCacheRepository(redis_url) if redis_url else InMemorySemanticCacheRepository()
+    cache_repo = (
+        RedisSemanticCacheRepository(redis_url)
+        if redis_url
+        else SQLiteSemanticCacheRepository(data_dir / "semantic_cache.db")
+    )
+    rate_limit_settings = {
+        "capacity": _int_env("CIS_RATE_LIMIT_CAPACITY", 20),
+        "refill_per_minute": _int_env("CIS_RATE_LIMIT_REFILL_PER_MINUTE", 20, min_value=0),
+        "base_backoff_seconds": _float_env("CIS_RATE_LIMIT_BASE_BACKOFF_SECONDS", 2.0, min_value=0.001),
+        "max_backoff_seconds": _float_env("CIS_RATE_LIMIT_MAX_BACKOFF_SECONDS", 60.0, min_value=0.001),
+    }
+    rate_limit_repo = (
+        RedisTokenBucketRateLimitRepository(redis_url, **rate_limit_settings)
+        if redis_url
+        else TokenBucketRateLimitRepository(**rate_limit_settings)
+    )
 
     app = create_app(
         access_matrix_repo=access,
         scope_repo=scope,
         cache_repo=cache_repo,
-        rate_limit_repo=TokenBucketRateLimitRepository(),
+        rate_limit_repo=rate_limit_repo,
         audit_repo=SQLiteAuditRepository(data_dir / "audit.db"),
         history_repo=SQLiteUserHistoryRepository(data_dir / "history.db"),
         retrieval_store=store,
