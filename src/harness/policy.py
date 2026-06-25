@@ -4,11 +4,13 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from src.harness.models import RetrievalPacket, TaskSpec
+from src.harness.models import ClarificationRequest, RetrievalPacket, TaskSpec
+from src.harness.policy_text import PolicyTextAnswerSynthesizer
+from src.harness.structured_facts import StructuredFactAnswerSynthesizer
 from src.retrieval.context_summary import ResponseShaper
 
 
-RESPONSE_POLICY_VERSION = "response-policy-v3"
+RESPONSE_POLICY_VERSION = "response-policy-v4"
 
 
 @dataclass(frozen=True)
@@ -17,6 +19,7 @@ class PolicyDecision:
     accepted: bool
     source: str
     flags: List[str] = field(default_factory=list)
+    clarification: Optional[ClarificationRequest] = None
 
 
 @dataclass(frozen=True)
@@ -87,6 +90,11 @@ class ResponsePolicy:
         re.IGNORECASE,
     )
     _GENERIC_UNUSABLE = "The cached response matched code artifacts but did not contain a usable behavioral summary."
+    _CLARIFICATION_SUGGESTIONS = (
+        "Name the repository or module.",
+        "Include a class, function, file, schema, or format extension.",
+        "Ask about behavior that is present in the indexed code or docs.",
+    )
     _IGNORED_MENTIONS = {
         "Any",
         "AccessTier",
@@ -109,8 +117,15 @@ class ResponsePolicy:
         "value",
     }
 
-    def __init__(self, shaper: Optional[ResponseShaper] = None):
+    def __init__(
+        self,
+        shaper: Optional[ResponseShaper] = None,
+        fact_synthesizer: Optional[StructuredFactAnswerSynthesizer] = None,
+        policy_text_synthesizer: Optional[PolicyTextAnswerSynthesizer] = None,
+    ):
         self.shaper = shaper or ResponseShaper()
+        self.fact_synthesizer = fact_synthesizer or StructuredFactAnswerSynthesizer()
+        self.policy_text_synthesizer = policy_text_synthesizer or PolicyTextAnswerSynthesizer()
         self.version = RESPONSE_POLICY_VERSION
 
     def apply(self, model_output: str, task: TaskSpec, packet: RetrievalPacket) -> PolicyDecision:
@@ -119,12 +134,7 @@ class ResponsePolicy:
         flags.extend(flag for flag in self._quality_flags(shaped) if flag not in flags)
 
         if not packet.artifacts and not packet.summaries:
-            return PolicyDecision(
-                response=self.fallback_response(task, packet),
-                accepted=False,
-                source="fallback",
-                flags=list(dict.fromkeys([*flags, "no_retrieval_context"])),
-            )
+            return self.fallback_decision(task, packet, [*flags, "no_retrieval_context"])
 
         if (
             not shaped
@@ -136,16 +146,15 @@ class ResponsePolicy:
             or "raw_code" in flags
             or self._is_path_list_shell(model_output)
         ):
-            return PolicyDecision(
-                response=self.fallback_response(task, packet),
-                accepted=False,
-                source="fallback",
-                flags=list(dict.fromkeys([*flags, "fallback_used"])),
-            )
+            return self.fallback_decision(task, packet, [*flags, "fallback_used"])
 
         return PolicyDecision(response=shaped, accepted=True, source="model", flags=list(dict.fromkeys(flags)))
 
-    def sanitize_cached(self, cached_text: str) -> Optional[PolicyDecision]:
+    def sanitize_cached(
+        self,
+        cached_text: str,
+        clarification: Optional[ClarificationRequest] = None,
+    ) -> Optional[PolicyDecision]:
         shaped = self.shaper.shape(cached_text)
         original_flags = self._quality_flags(cached_text)
         shaped_flags = self._quality_flags(shaped)
@@ -154,16 +163,50 @@ class ResponsePolicy:
             return None
         if "path_leak" in shaped_flags or "raw_code" in shaped_flags:
             return None
-        return PolicyDecision(response=shaped, accepted=True, source="cache", flags=list(dict.fromkeys(flags)))
+        if clarification:
+            flags.append("clarification_requested")
+        return PolicyDecision(
+            response=shaped,
+            accepted=True,
+            source="cache",
+            flags=list(dict.fromkeys(flags)),
+            clarification=clarification,
+        )
+
+    def fallback_decision(
+        self,
+        task: TaskSpec,
+        packet: RetrievalPacket,
+        flags: Optional[List[str]] = None,
+    ) -> PolicyDecision:
+        clarification = self.clarification_for(task, packet)
+        response = self.fallback_response(task, packet)
+        final_flags = list(flags or [])
+        if clarification:
+            final_flags.append("clarification_requested")
+        return PolicyDecision(
+            response=response,
+            accepted=False,
+            source="fallback",
+            flags=list(dict.fromkeys(final_flags)),
+            clarification=clarification,
+        )
 
     def fallback_response(self, task: TaskSpec, packet: RetrievalPacket) -> str:
         if not packet.artifacts and not packet.summaries:
-            return f"No indexed context matched `{task.query}`."
+            return self._no_context_clarification(task, "no_retrieval_context").question
+
+        structured_answer = self.fact_synthesizer.answer(task.query, packet.artifacts)
+        if structured_answer:
+            return structured_answer
+        policy_answer = self.policy_text_synthesizer.answer(task.query, packet.artifacts)
+        if policy_answer:
+            return policy_answer
 
         selected_artifacts = self._select_relevant_artifacts(task.query, packet)
         selected_summaries = self._select_relevant_summaries(task.query, packet, selected_artifacts)
         if not selected_artifacts and not selected_summaries:
-            return f"No indexed context matched `{task.query}`."
+            return self._no_context_clarification(task, "no_relevant_context").question
 
         takeaways = [self._takeaway_from_summary(summary) for summary in selected_summaries]
         if not takeaways:
@@ -181,6 +224,29 @@ class ResponsePolicy:
             ]
         lines.extend(f"- {takeaway.text}" for takeaway in takeaways[:5])
         return "\n".join(lines).strip()
+
+    def clarification_for(self, task: TaskSpec, packet: RetrievalPacket) -> Optional[ClarificationRequest]:
+        if not packet.artifacts and not packet.summaries:
+            return self._no_context_clarification(task, "no_retrieval_context")
+        if self.fact_synthesizer.answer(task.query, packet.artifacts):
+            return None
+        if self.policy_text_synthesizer.answer(task.query, packet.artifacts):
+            return None
+        selected_artifacts = self._select_relevant_artifacts(task.query, packet)
+        selected_summaries = self._select_relevant_summaries(task.query, packet, selected_artifacts)
+        if not selected_artifacts and not selected_summaries:
+            return self._no_context_clarification(task, "no_relevant_context")
+        return None
+
+    def _no_context_clarification(self, task: TaskSpec, reason: str) -> ClarificationRequest:
+        return ClarificationRequest(
+            reason=reason,
+            question=(
+                f"I could not find indexed context for `{task.query}`. "
+                "Which repository, component, symbol, or file should I search?"
+            ),
+            suggestions=list(self._CLARIFICATION_SUGGESTIONS),
+        )
 
     @staticmethod
     def _prune_takeaways(takeaways: List[_Takeaway]) -> List[_Takeaway]:

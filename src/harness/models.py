@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from src.gateway.models import AccessTier
 
@@ -38,6 +38,37 @@ class RetrievalPacket:
 
 
 @dataclass(frozen=True)
+class ClarificationRequest:
+    reason: str
+    question: str
+    suggestions: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "reason": self.reason,
+            "question": self.question,
+            "suggestions": list(self.suggestions),
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Any) -> Optional["ClarificationRequest"]:
+        if not isinstance(payload, dict):
+            return None
+        reason = payload.get("reason")
+        question = payload.get("question")
+        suggestions = payload.get("suggestions", [])
+        if not isinstance(reason, str) or not isinstance(question, str):
+            return None
+        if not isinstance(suggestions, list):
+            suggestions = []
+        return cls(
+            reason=reason,
+            question=question,
+            suggestions=[str(suggestion) for suggestion in suggestions],
+        )
+
+
+@dataclass(frozen=True)
 class HarnessResult:
     response: str
     cache_status: str
@@ -45,3 +76,4 @@ class HarnessResult:
     timings_ms: Dict[str, float]
     quality_flags: List[str]
     inference_engine_used: str
+    clarification: Optional[ClarificationRequest] = None

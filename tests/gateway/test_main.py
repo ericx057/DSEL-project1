@@ -18,6 +18,8 @@ from tests.gateway.mocks import (
     InMemoryAuditRepository
 )
 from src.gateway.model_hook import ModelHook
+from src.harness.cache import CachedResponse
+from src.harness.models import ClarificationRequest
 from src.retrieval.database import InMemoryUnifiedStore
 from src.gateway.services import CacheService, RESPONSE_CACHE_POLICY_VERSION
 
@@ -215,3 +217,47 @@ async def test_coalesced_subscriber_buffers_before_shaping(test_app):
     assert "class Service:" not in response.text
     assert "def handle" not in response.text
     assert response.text == "The cached response matched code artifacts but did not contain a usable behavioral summary."
+
+
+@pytest.mark.asyncio
+async def test_coalesced_clarification_returns_json_payload(test_app):
+    fastapi_app, _, _, _ = test_app
+
+    class ClarificationCacheRepository(InMemoryCacheRepository):
+        async def acquire_lock(self, key: str) -> bool:
+            return False
+
+        async def subscribe(self, key: str):
+            yield CachedResponse(
+                response=(
+                    "I could not find indexed context for `Where is billing handled?`. "
+                    "Which repository, component, symbol, or file should I search?"
+                ),
+                policy_version=RESPONSE_CACHE_POLICY_VERSION,
+                model_id="mock-engine",
+                index_fingerprint="unknown-index",
+                quality_flags=["no_retrieval_context", "clarification_requested"],
+                clarification=ClarificationRequest(
+                    reason="no_retrieval_context",
+                    question=(
+                        "I could not find indexed context for `Where is billing handled?`. "
+                        "Which repository, component, symbol, or file should I search?"
+                    ),
+                    suggestions=["Name the repository or module."],
+                ),
+            ).to_json()
+
+    fastapi_app.dependency_overrides[get_cache_repo] = lambda: ClarificationCacheRepository()
+
+    async with AsyncClient(transport=ASGITransport(app=fastapi_app), base_url="http://test") as ac:
+        response = await ac.post(
+            "/query",
+            json={"query": "Where is billing handled?"},
+            headers={"Authorization": "user1"},
+        )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["cached"] is False
+    assert body["clarification"]["reason"] == "no_retrieval_context"
+    assert "Which repository" in body["clarification"]["question"]

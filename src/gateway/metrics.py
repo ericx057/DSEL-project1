@@ -8,7 +8,7 @@ from typing import Iterable
 
 class GatewayMetrics:
     _BUCKETS = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
-    _FALLBACK_FLAGS = {"fallback_used", "no_retrieval_context"}
+    _FALLBACK_FLAGS = {"fallback_used", "no_retrieval_context", "clarification_requested"}
 
     def __init__(self) -> None:
         self._lock = threading.RLock()

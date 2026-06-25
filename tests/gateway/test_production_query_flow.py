@@ -156,6 +156,46 @@ async def test_production_query_flow_retrieves_before_inference_and_logs(tmp_pat
 
 
 @pytest.mark.asyncio
+async def test_query_returns_structured_clarification_when_retrieval_is_empty(tmp_path: Path):
+    store = SQLiteUnifiedStore(tmp_path / "index.db", HashingEmbeddingProvider(dimensions=16))
+    access = SQLiteAccessMatrixRepository(tmp_path / "access.db")
+    access.set_user_tier("user-1", AccessTier.T1)
+    scopes = SQLiteScopeRepository(tmp_path / "access.db")
+    scopes.grant_group_scope("platform", "repo-a")
+    audit = SQLiteAuditRepository(tmp_path / "audit.db")
+    model_hook = RecordingModelHook()
+
+    app = create_app(
+        access_matrix_repo=access,
+        scope_repo=scopes,
+        cache_repo=InMemorySemanticCacheRepository(),
+        rate_limit_repo=TokenBucketRateLimitRepository(capacity=20, refill_per_minute=20),
+        audit_repo=audit,
+        retrieval_store=store,
+        model_hook=model_hook,
+        jwt_verifier=HS256JWTVerifier("secret", issuer="cis", audience="developers"),
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/query",
+            json={"query": "Where is payment handled?"},
+            headers={"Authorization": f"Bearer {_production_token()}"},
+        )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["cached"] is False
+    assert body["clarification"]["question"] == (
+        "I could not find indexed context for `Where is payment handled?`. "
+        "Which repository, component, symbol, or file should I search?"
+    )
+    assert "Name the repository or module." in body["clarification"]["suggestions"]
+    assert model_hook.prompts == []
+    assert audit.list_events()[0].cache_hit is False
+
+
+@pytest.mark.asyncio
 async def test_successful_query_response_survives_history_write_failure(tmp_path: Path):
     audit = SQLiteAuditRepository(tmp_path / "audit.db")
     app = _production_query_app(tmp_path, audit_repo=audit, history_repo=FailingHistoryRepository())

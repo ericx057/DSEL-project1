@@ -106,6 +106,83 @@ def test_lexical_reranker_uses_text_matches_without_filename_policy_boosts():
     assert [item["id"] for item in ranked[:2]] == ["rules", "owner"]
 
 
+def test_lexical_reranker_prioritizes_policy_docs_for_license_queries():
+    reranker = LexicalReranker()
+    chunks = [
+        {
+            "id": "script",
+            "file_path": "scripts/license_contribution_schemas_examples.py",
+            "kind": "function",
+            "symbol_name": "license_contribution_schemas_examples",
+            "text": "license schemas examples contribution MIT rule areas",
+        },
+        {
+            "id": "schema",
+            "file_path": "schemas/ocp.schema.json",
+            "kind": "json-document",
+            "text": "schemas examples MIT schema",
+        },
+        {
+            "id": "example",
+            "file_path": "examples/bracket_demo.ocp",
+            "kind": "json-document",
+            "text": "example schema MIT",
+        },
+        {
+            "id": "licenses",
+            "file_path": "LICENSES.md",
+            "kind": "text/markdown",
+            "text": "schemas/ and examples/ are licensed under MIT.",
+        },
+        {
+            "id": "contributing",
+            "file_path": "CONTRIBUTING.md",
+            "kind": "text/markdown",
+            "text": "Contributions to MIT-licensed areas are licensed under MIT.",
+        },
+    ]
+
+    ranked = reranker.rerank(
+        "Which license applies to schemas and examples, and what contribution rule covers MIT-licensed areas?",
+        chunks,
+        top_m=4,
+    )
+
+    assert [item["id"] for item in ranked[:2]] == ["licenses", "contributing"]
+
+
+def test_lexical_reranker_prioritizes_specific_rfc_policy_chunks():
+    reranker = LexicalReranker()
+    chunks = [
+        {
+            "id": "contrib-general",
+            "file_path": "CONTRIBUTING.md",
+            "kind": "text/markdown",
+            "text": "Read GOVERNANCE.md before participating in proposals and schema discussions.",
+        },
+        {
+            "id": "contrib-rfc",
+            "file_path": "CONTRIBUTING.md",
+            "kind": "text/markdown",
+            "text": "Schema Or Semantic Changes open an issue titled RFC before writing the final patch. Examples include schema constraint changes and interoperability behavior changes.",
+        },
+        {
+            "id": "governance-rfc",
+            "file_path": "GOVERNANCE.md",
+            "kind": "text/markdown",
+            "text": "Semantic or schema changes should begin with an RFC issue.",
+        },
+    ]
+
+    ranked = reranker.rerank(
+        "Which governance rule requires an RFC issue for semantic or schema changes, and which contributing section gives examples of schema changes?",
+        chunks,
+        top_m=2,
+    )
+
+    assert [item["id"] for item in ranked] == ["contrib-rfc", "governance-rfc"]
+
+
 def test_lexical_reranker_keeps_file_diversity_before_duplicates():
     reranker = LexicalReranker()
     chunks = [

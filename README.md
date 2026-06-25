@@ -101,13 +101,15 @@ Index any repository mounted at `CIS_REPOSITORY_PATH`; the index is persisted in
 CIS_DATA_DIR=./.cis \
 CIS_REPOSITORY_PATH=/path/to/repo \
 CIS_REPOSITORY_NAME=my-repo \
-CIS_EMBEDDING_BACKEND=hashing \
+CIS_EMBEDDING_BACKEND=nomic \
     python -m src.ingestion.cli
 ```
 
 `CIS_REPOSITORY_NAME` becomes the repository scope used by access control and retrieval.
 For Docker Compose, set `CIS_REPOSITORY_HOST_PATH=/path/to/repo` and `CIS_REPOSITORY_NAME=my-repo`, then run `docker compose --profile indexing run --rm indexer`.
 Re-indexing a repository is atomic: the previous index remains queryable until the replacement has been fully parsed, embedded, and committed.
+
+The production default is `nomic-ai/nomic-embed-text-v1.5` with query/document task prefixes. For a heavier local encoder, set `CIS_EMBEDDING_BACKEND=sentence_transformers` and `CIS_EMBEDDING_MODEL=BAAI/bge-large-en-v1.5`, then re-index. Query-time embeddings must match the model and dimensions used when the index was built.
 
 ## CI
 

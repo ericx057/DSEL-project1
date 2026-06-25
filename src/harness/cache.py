@@ -5,6 +5,8 @@ import json
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from src.harness.models import ClarificationRequest
+
 
 @dataclass(frozen=True)
 class HarnessCacheKey:
@@ -37,6 +39,7 @@ class CachedResponse:
     model_id: str
     index_fingerprint: str
     quality_flags: List[str] = field(default_factory=list)
+    clarification: Optional[ClarificationRequest] = None
     schema: str = "harness.cached_response"
     version: int = 1
 
@@ -62,10 +65,12 @@ class CachedResponse:
         flags = payload.get("quality_flags", [])
         if not isinstance(flags, list):
             flags = []
+        clarification = ClarificationRequest.from_dict(payload.get("clarification"))
         return cls(
             response=response,
             policy_version=policy_version,
             model_id=model_id,
             index_fingerprint=index_fingerprint,
             quality_flags=[str(flag) for flag in flags],
+            clarification=clarification,
         )

@@ -20,7 +20,7 @@ from src.gateway.repositories import (
 from src.gateway.security import HS256JWTVerifier
 
 
-RESPONSE_CACHE_POLICY_VERSION = "response-policy-v3"
+RESPONSE_CACHE_POLICY_VERSION = "response-policy-v4"
 
 class CircuitBreaker:
     def __init__(self, failure_threshold: int = 3, recovery_timeout: int = 30):

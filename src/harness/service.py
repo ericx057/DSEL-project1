@@ -6,7 +6,7 @@ from typing import AsyncGenerator, Protocol
 
 from src.gateway.services import CacheService, tier_rank
 from src.harness.cache import CachedResponse, HarnessCacheKey
-from src.harness.models import HarnessResult, RetrievalPacket, TaskSpec
+from src.harness.models import ClarificationRequest, HarnessResult, RetrievalPacket, TaskSpec
 from src.harness.policy import RESPONSE_POLICY_VERSION, PolicyDecision, ResponsePolicy
 from src.harness.trace import InMemoryTraceRecorder, TraceRecord, TraceRecorder
 from src.retrieval.assembler import PromptAssembler
@@ -82,12 +82,13 @@ class HarnessService:
 
         if cache_available and not lock_acquired:
             try:
-                response_text = await self._collect_coalesced_response(task, key)
-                decision = self.policy.sanitize_cached(response_text) or PolicyDecision(
+                response_text, clarification = await self._collect_coalesced_response(task, key)
+                decision = self.policy.sanitize_cached(response_text, clarification) or PolicyDecision(
                     response=ResponseShaper().shape(response_text),
                     accepted=False,
                     source="coalesced",
                     flags=["coalesced_unstructured"],
+                    clarification=clarification,
                 )
                 return self._result_from_decision(task, trace_id, "coalesced", decision, [], "", started)
             except Exception:
@@ -98,6 +99,23 @@ class HarnessService:
         prompt = ""
         try:
             packet = self._retrieve(task, key.index_fingerprint)
+            if not packet.artifacts and not packet.summaries:
+                decision = self.policy.apply("", task, packet)
+                result = self._result_from_decision(
+                    task,
+                    trace_id,
+                    "miss",
+                    decision,
+                    [],
+                    "",
+                    started,
+                    packet.timings_ms,
+                )
+                payload = self._cached_response_payload(result, task, key)
+                if cache_available:
+                    await self._store_cache_payload(task, key, payload)
+                return result
+
             prompt = self._build_prompt(task, packet)
             model_text = await self._generate(prompt)
             decision = self.policy.apply(model_text, task, packet)
@@ -111,13 +129,7 @@ class HarnessService:
                 started,
                 packet.timings_ms,
             )
-            payload = CachedResponse(
-                response=result.response,
-                policy_version=self.policy.version,
-                model_id=task.model_id,
-                index_fingerprint=key.index_fingerprint,
-                quality_flags=result.quality_flags,
-            ).to_json()
+            payload = self._cached_response_payload(result, task, key)
             if cache_available:
                 await self._store_cache_payload(task, key, payload)
             return result
@@ -195,7 +207,11 @@ class HarnessService:
             index_fingerprint=key.index_fingerprint,
         )
 
-    async def _collect_coalesced_response(self, task: TaskSpec, key: HarnessCacheKey) -> str:
+    async def _collect_coalesced_response(
+        self,
+        task: TaskSpec,
+        key: HarnessCacheKey,
+    ) -> tuple[str, ClarificationRequest | None]:
         chunks = []
         async for chunk in self.cache.subscribe(
             task.query,
@@ -208,7 +224,9 @@ class HarnessService:
             chunks.append(chunk)
         payload = "".join(chunks)
         cached = CachedResponse.from_json(payload)
-        return cached.response if cached is not None else payload
+        if cached is not None:
+            return cached.response, cached.clarification
+        return payload, None
 
     async def _publish(self, task: TaskSpec, key: HarnessCacheKey, payload: str) -> None:
         await self.cache.publish(
@@ -251,8 +269,24 @@ class HarnessService:
         if payload is None:
             return None
         cached = CachedResponse.from_json(payload)
-        text = cached.response if cached is not None else payload
-        return self.policy.sanitize_cached(text)
+        if cached is not None:
+            return self.policy.sanitize_cached(cached.response, cached.clarification)
+        return self.policy.sanitize_cached(payload)
+
+    def _cached_response_payload(
+        self,
+        result: HarnessResult,
+        task: TaskSpec,
+        key: HarnessCacheKey,
+    ) -> str:
+        return CachedResponse(
+            response=result.response,
+            policy_version=self.policy.version,
+            model_id=task.model_id,
+            index_fingerprint=key.index_fingerprint,
+            quality_flags=result.quality_flags,
+            clarification=result.clarification,
+        ).to_json()
 
     def _result_from_decision(
         self,
@@ -289,6 +323,7 @@ class HarnessService:
             timings_ms=timings,
             quality_flags=decision.flags,
             inference_engine_used=task.model_id,
+            clarification=decision.clarification,
         )
 
     def _prompt_summary(self, packet: RetrievalPacket) -> str:

@@ -4,30 +4,8 @@ import os
 from pathlib import Path
 
 from src.ingestion.indexer import RepositoryIndexer
-from src.retrieval.database import HashingEmbeddingProvider, SQLiteUnifiedStore
-from src.retrieval.embeddings import (
-    LocalTransformersEmbeddingProvider,
-    SentenceTransformersProvider,
-    make_nomic_provider,
-)
-
-
-def build_embedding_provider():
-    backend = os.environ.get("CIS_EMBEDDING_BACKEND", "nomic").lower()
-    if backend == "hashing":
-        return HashingEmbeddingProvider()
-    if backend == "sentence_transformers" or backend == "minilm":
-        model = os.environ.get("CIS_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-        return SentenceTransformersProvider(model_name=model)
-    # default: nomic-embed-text-v1.5 with task prefixes
-    model = os.environ.get("CIS_EMBEDDING_MODEL", "nomic-ai/nomic-embed-text-v1.5")
-    if model == "nomic-ai/nomic-embed-text-v1.5":
-        return make_nomic_provider(local_files_only=False)
-    return LocalTransformersEmbeddingProvider(
-        model_name=model,
-        trust_remote_code=os.environ.get("CIS_EMBEDDING_TRUST_REMOTE_CODE", "false").lower() == "true",
-        local_files_only=False,
-    )
+from src.retrieval.database import SQLiteUnifiedStore
+from src.retrieval.embedding_config import build_embedding_provider
 
 
 def main() -> int:

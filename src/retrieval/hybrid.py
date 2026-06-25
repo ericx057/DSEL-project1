@@ -32,6 +32,11 @@ class HybridSearcher:
             if hasattr(self.store, "filename_search")
             else []
         )
+        lex_res = (
+            self.store.lexical_search(query, user_tier, repo_scope, top_k=max(self.vector_top_k, 20))
+            if hasattr(self.store, "lexical_search")
+            else []
+        )
 
         if self.lambda_ratio == 1.0:
             v_res = self.store.vector_search(query, user_tier, repo_scope, self.vector_top_k)
@@ -50,7 +55,7 @@ class HybridSearcher:
         seen: set = set()
         # Filename hits first (highest precision), then vector/graph blend.
         vector_slots = max(1, int(len(v_res) * self.lambda_ratio)) if v_res else 0
-        ordered_candidates = fn_res + v_res[:vector_slots] + g_res + v_res[vector_slots:]
+        ordered_candidates = fn_res + v_res[:vector_slots] + lex_res + g_res + v_res[vector_slots:]
         for doc in ordered_candidates:
             if doc["id"] not in seen:
                 seen.add(doc["id"])

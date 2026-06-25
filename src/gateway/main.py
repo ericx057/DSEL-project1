@@ -124,6 +124,13 @@ async def _add_history_best_effort(
         logger.exception("History write failed after successful query")
 
 
+def _query_result_payload(result, *, cached: bool) -> dict:
+    payload = {"response": result.response, "cached": cached, "trace_id": result.trace_id}
+    if result.clarification is not None:
+        payload["clarification"] = result.clarification.to_dict()
+    return payload
+
+
 def _apply_security_headers(response: Response) -> Response:
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
@@ -338,7 +345,7 @@ def create_app(
                     rbac_blocked=False,
                 )
             )
-            return {"response": result.response, "cached": True, "trace_id": result.trace_id}
+            return _query_result_payload(result, cached=True)
 
         if result.cache_status == "miss":
             await _add_history_best_effort(
@@ -365,6 +372,9 @@ def create_app(
                     rbac_blocked=False,
                 )
             )
+
+        if result.clarification is not None:
+            return _query_result_payload(result, cached=False)
 
         async def final_stream():
             yield result.response

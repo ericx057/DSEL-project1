@@ -5,8 +5,8 @@ from pathlib import Path
 
 from fastapi.responses import FileResponse
 
-from src.retrieval.database import HashingEmbeddingProvider, SQLiteUnifiedStore
-from src.retrieval.embeddings import LocalTransformersEmbeddingProvider
+from src.retrieval.database import SQLiteUnifiedStore
+from src.retrieval.embedding_config import build_embedding_provider
 from src.gateway.main import create_app
 from src.gateway.models import AccessTier
 from src.gateway.repositories import (
@@ -55,17 +55,7 @@ def build_app():
     audience = os.environ.get("CIS_JWT_AUDIENCE")
     metrics_token = os.environ["CIS_METRICS_TOKEN"]
 
-    embedding_backend = os.environ.get("CIS_EMBEDDING_BACKEND", "nomic").lower()
-    embedding_provider = (
-        HashingEmbeddingProvider()
-        if embedding_backend == "hashing"
-        else LocalTransformersEmbeddingProvider(
-            os.environ.get("CIS_EMBEDDING_MODEL", "nomic-ai/nomic-embed-text-v1.5"),
-            trust_remote_code=os.environ.get("CIS_EMBEDDING_TRUST_REMOTE_CODE", "false").lower() == "true",
-        )
-    )
-
-    store = SQLiteUnifiedStore(data_dir / "index.db", embedding_provider)
+    store = SQLiteUnifiedStore(data_dir / "index.db", build_embedding_provider())
 
     access = SQLiteAccessMatrixRepository(data_dir / "access.db")
     default_user = os.environ.get("CIS_BOOTSTRAP_USER")

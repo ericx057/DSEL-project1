@@ -255,6 +255,27 @@ async def test_harness_returns_response_when_cache_write_or_release_fails(tmp_pa
     assert trace.records[0].cache_status == "miss"
 
 
+@pytest.mark.asyncio
+async def test_harness_returns_clarification_without_model_when_retrieval_is_empty(tmp_path: Path):
+    store = _store(tmp_path)
+    cache = CacheService(InMemorySemanticCacheRepository())
+    trace = InMemoryTraceRecorder()
+    model = FakeModelAdapter(["model should not run"])
+    harness = HarnessService(store=store, cache=cache, model=model, trace_recorder=trace)
+
+    result = await harness.execute(_task())
+
+    assert result.cache_status == "miss"
+    assert result.clarification is not None
+    assert result.clarification.question == (
+        "I could not find indexed context for `How does checkout authorization work?`. "
+        "Which repository, component, symbol, or file should I search?"
+    )
+    assert "clarification_requested" in result.quality_flags
+    assert model.prompts == []
+    assert trace.records[0].quality_flags == result.quality_flags
+
+
 def test_harness_cache_key_value_changes_for_core_dimensions():
     base = HarnessCacheKey(
         normalized_query="q",
